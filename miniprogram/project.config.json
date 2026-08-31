@@ -2,11 +2,47 @@
   "miniprogramRoot": "dist/",
   "projectname": "zhusheng",
   "description": "烛生 · 陪你按时睡觉",
-  "appid": "touristappid",
+  "appid": "wx66db858c0e0a21c2",
   "setting": {
     "urlCheck": false,
     "es6": false,
-    "minified": false
+    "minified": false,
+    "postcss": false,
+    "compileWorklet": false,
+    "uglifyFileName": false,
+    "uploadWithSourceMap": true,
+    "enhance": false,
+    "packNpmManually": false,
+    "packNpmRelationList": [],
+    "minifyWXSS": true,
+    "minifyWXML": true,
+    "localPlugins": false,
+    "disableUseStrict": false,
+    "useCompilerPlugins": false,
+    "condition": false,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    }
   },
-  "compileType": "miniprogram"
+  "compileType": "miniprogram",
+  "condition": {
+    "miniprogram": {
+      "list": [
+        {
+          "name": "普通编译",
+          "pathName": "pages/home/index",
+          "query": "",
+          "scene": 1001
+        }
+      ]
+    }
+  },
+  "simulatorPluginLibVersion": {},
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "editorSetting": {}
 }

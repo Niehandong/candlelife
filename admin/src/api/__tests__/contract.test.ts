@@ -154,7 +154,7 @@ describe('与后端 OpenAPI 的契约', () => {
       console.warn(
         `\n⚠️  后端未运行（${BACKEND}），契约断言已跳过。\n` +
         '   发布前必须起着后端跑一次：\n' +
-        '   cd backend && .venv/bin/uvicorn app.main:app --port 8010\n',
+        '   ./.venv/bin/python backend/main.py\n',
       )
       return
     }

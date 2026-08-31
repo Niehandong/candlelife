@@ -71,7 +71,7 @@ describe('routeAfterBootstrap', () => {
     apiMock.getConfig.mockRejectedValueOnce(new Error('network down'))
     const { routeAfterBootstrap } = await import('../session')
     await routeAfterBootstrap()
-    expect(toastCalls).toEqual([{ title: '网络不可用', icon: 'none' }])
+    expect(toastCalls).toEqual([{ title: 'network down', icon: 'none' }])
     expect(reLaunchCalls).toEqual([{ url: '/pages/welcome/index' }])
   })
 

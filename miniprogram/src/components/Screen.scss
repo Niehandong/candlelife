@@ -10,5 +10,14 @@
 
   &__inner { padding: 48px 40px; }
 
-  &--still * { animation: none !important; transition: none !important; }
+  // WXSS 不支持通配选择器：`&--still *` 会让开发者工具直接报
+  // "unexpected token `*`"，导致整个 common.wxss 编译失败、全站样式失效。
+  // 改用 WXSS 支持的标签选择器做后代匹配（`.a view` 匹配任意层级后代）。
+  // 自定义组件默认样式隔离，外部选择器本就进不去，覆盖基础标签即可。
+  &--still view,
+  &--still text,
+  &--still image {
+    animation: none !important;
+    transition: none !important;
+  }
 }

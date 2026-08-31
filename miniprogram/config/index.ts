@@ -1,5 +1,7 @@
 import path from 'node:path'
 
+const apiBaseUrl = process.env.API_BASE_URL || 'http://127.0.0.1:8010'
+
 export default {
   projectName: 'zhusheng',
   date: '2026-08-31',
@@ -8,6 +10,9 @@ export default {
   sourceRoot: 'src',
   outputRoot: 'dist',
   plugins: [],
+  defineConstants: {
+    API_BASE_URL: JSON.stringify(apiBaseUrl),
+  },
   alias: {
     '@': path.resolve(__dirname, '..', 'src'),
     '@shared': path.resolve(__dirname, '..', '..', 'shared'),

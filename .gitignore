@@ -21,7 +21,7 @@ private.*.key
 #  依赖目录：体积大且可完整重建
 # ══════════════════════════════════════════════════════════════════
 # 重建方式：
-#   backend     python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
+#   backend     python3 -m venv .venv && .venv/bin/python -m pip install -r backend/requirements.txt
 #   admin       npm install
 #   miniprogram npm install
 node_modules/
@@ -79,7 +79,7 @@ node_modules/.vite/
 # ══════════════════════════════════════════════════════════════════
 # static/ui/ 全部由 scripts/prepare_ui_assets.py 从 prototype/ 生成
 # （含 2.3M 的 prologue.mp4），prototype/ 在库里，因此可安全忽略：
-#     cd backend && .venv/bin/python -m scripts.prepare_ui_assets
+#     cd backend && ../.venv/bin/python -m scripts.prepare_ui_assets
 backend/static/ui/
 #
 # static/art/ 的 20 个文件【刻意不忽略】。scripts/art_sources.py 只记录了

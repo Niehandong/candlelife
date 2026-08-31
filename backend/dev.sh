@@ -9,7 +9,7 @@
 #   ./dev.sh logs -f      跟随输出
 #   ./dev.sh status
 #
-# 只管进程，不管环境：不检测、不安装依赖。缺 .venv 时报一行原因就停。
+# 只管进程，不管环境：不检测、不安装依赖。缺根目录 .venv 时报一行原因就停。
 #
 # 【端口】默认 8010，不用惯例的 8000 —— 这台机器的 8000 属于另一个 FastAPI 项目。
 # 覆盖方式：PORT=9000 ./dev.sh start
@@ -33,8 +33,12 @@ PORT="${PORT:-8010}"
 # 只想本机可访问就 HOST=127.0.0.1 ./dev.sh start。
 HOST="${HOST:-0.0.0.0}"
 LABEL="后端 API"
-ENTRY="$ROOT/.venv/bin/uvicorn"
-FIX_HINT='python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"'
+if [ -x "$ROOT/../.venv/bin/python" ]; then
+  ENTRY="$ROOT/../.venv/bin/python"
+else
+  # Windows 下从 Git Bash 运行时，venv 的解释器位于 Scripts/。
+  ENTRY="$ROOT/../.venv/Scripts/python.exe"
+fi
 # 用于识别进程的特征词。注意 uvicorn --reload 真正监听端口的那个子进程，
 # 命令行是 `python3 -c from multiprocessing.spawn import ...`，里面【没有
 # uvicorn 这个词】—— 所以 pid_matches 还要看可执行文件路径，不能只看这个。
@@ -128,7 +132,7 @@ do_start() {
 
   if [ ! -x "$ENTRY" ]; then
     err "$LABEL 起不来：找不到 $ENTRY"
-    info "先装依赖：$FIX_HINT"
+    info "请确认项目根目录 .venv 已存在且可用"
     return 1
   fi
 
@@ -159,7 +163,7 @@ do_start() {
         [ "$_n" -gt 2 ] 2>/dev/null && eval "exec ${_n}>&-" 2>/dev/null
       done
       exec "$@"' bash \
-      "$ENTRY" app.main:app --host "$HOST" --port "$PORT" --reload \
+      env HOST="$HOST" PORT="$PORT" "$ENTRY" "$ROOT/main.py" \
       </dev/null >> "$LOGFILE" 2>&1 )
 
   # 等端口真的起来，而不是「命令已提交」就报成功

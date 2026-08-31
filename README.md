@@ -31,19 +31,31 @@ cd admin   && ./dev.sh start    # :8011
 
 ## 首次上手
 
+**Python 版本要求：>= 3.12**，依赖统一维护在 `backend/requirements.txt`。
+
+Windows PowerShell 首次安装与启动：
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r .\backend\requirements.txt
+.\.venv\Scripts\python.exe .\backend\main.py
+```
+
+启动只运行 `backend/main.py`，不会自动安装依赖或初始化数据库。
+
 ```bash
 # 1. 后端依赖与配置
-cd backend
-python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
-cp .env.example .env        # 填数据库、Redis、FERNET_KEYS、JWT_SECRET
+python3 -m venv .venv
+.venv/bin/python -m pip install -r backend/requirements.txt
+cd backend && cp .env.example .env        # 填数据库、Redis、FERNET_KEYS、JWT_SECRET
 
 # 2. 建表与灌数据
-.venv/bin/alembic upgrade head
-.venv/bin/python -m scripts.seed_art            # 10 幅公共领域作品
-.venv/bin/python -m scripts.prepare_ui_assets   # 从 prototype/ 生成界面素材
+../.venv/bin/python -m alembic upgrade head
+../.venv/bin/python -m scripts.seed_art            # 10 幅公共领域作品
+../.venv/bin/python -m scripts.prepare_ui_assets   # 从 prototype/ 生成界面素材
 
 # 3. 建管理员（密码从键盘读，不落命令行历史）
-.venv/bin/python -m scripts.create_admin <用户名>
+../.venv/bin/python -m scripts.create_admin <用户名>
 
 # 4. 前端依赖
 cd ../admin && npm install
@@ -56,7 +68,7 @@ cd ../miniprogram && npm install
 ## 测试
 
 ```bash
-cd backend     && .venv/bin/python -m pytest    # 约 5 分钟
+cd backend     && ../.venv/bin/python -m pytest # 约 5 分钟
 cd admin       && npm test                       # 起着后端跑，契约测试才不会被跳过
 cd miniprogram && npm test
 ```
