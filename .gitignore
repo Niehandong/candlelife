@@ -10,6 +10,15 @@
 backend/.env
 backend/.env.local
 
+# 微信小程序的【个人本机】配置。开发者工具会用它覆盖 project.config.json
+# 的同名项，所以真实 AppID 写在这里、不进版本库；
+# project.config.json 只保留 touristappid 占位。
+# clone 之后若缺此文件，开发者工具会自动重建一份（appid 需自行填写）。
+miniprogram/project.private.config.json
+# 开发者工具会在项目根写下的其他个人态文件
+miniprogram/project.private.config.json.*
+*.private.config.json
+
 # 私钥、证书、微信小程序上传密钥
 *.pem
 *.key
