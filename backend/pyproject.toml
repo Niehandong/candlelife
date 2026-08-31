@@ -1,0 +1,34 @@
+[project]
+name = "zhusheng-backend"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30",
+    "alembic>=1.14",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "redis>=5.2",
+    "cryptography>=43.0",
+    "pyjwt>=2.10",
+    "httpx>=0.28",
+    # 直接依赖 bcrypt，不经 passlib：passlib 1.7.4（2020 年最后发版）与 bcrypt 5.x
+    # 不兼容，首次 hash 即在 detect_wrap_bug 抛 ValueError。
+    "bcrypt>=5.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "anyio>=4.6", "pillow>=10.4"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+# 数据库引擎是 session 级 fixture，需与测试共用同一事件循环
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["tests"]
+filterwarnings = ["error::DeprecationWarning:app.*"]
+
+[tool.setuptools.packages.find]
+include = ["app*", "scripts*"]

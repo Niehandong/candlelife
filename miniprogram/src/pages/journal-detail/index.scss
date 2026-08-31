@@ -1,0 +1,18 @@
+.detail {
+  &__date { display: block; font-size: 40px; color: var(--paper-ink); }
+  &__status { display: block; margin-top: 12px; font-size: 26px; color: var(--paper-muted); }
+  &__warn {
+    display: block; margin-top: 24px; padding: 20px 24px; border-radius: 16px;
+    background: rgba(185, 163, 205, 0.12); color: var(--purple); font-size: 24px; line-height: 1.7;
+  }
+  &__section { display: block; margin: 48px 0 20px; font-size: 26px; color: var(--paper-muted); }
+  &__item { display: block; font-size: 30px; line-height: 1.9; color: var(--paper-ink); }
+  &__input {
+    padding: 20px 0; font-size: 30px; color: var(--paper-ink);
+    border-bottom: 1px solid rgba(89, 78, 95, 0.12);
+  }
+  &__actions { margin-top: 64px; display: flex; flex-direction: column; gap: 16px; }
+  &__edit { font-size: 30px; color: var(--purple); }
+  &__save { background: var(--purple); color: var(--white); border-radius: 999px; font-size: 30px; }
+  &__hint { font-size: 24px; color: var(--paper-muted); }
+}

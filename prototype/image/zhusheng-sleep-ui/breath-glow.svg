@@ -1,0 +1,13 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="212" height="116" viewBox="0 0 212 116" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Breathing glow" filter="url(#filter0_f_0_4)">
+<ellipse cx="106" cy="58" rx="86" ry="38" fill="#C7B3D6" fill-opacity="0.25" style="mix-blend-mode:screen"/>
+<path d="M106 20.5C129.695 20.5 151.124 24.7444 166.609 31.5869C174.353 35.0084 180.588 39.0703 184.881 43.5547C189.171 48.0365 191.5 52.9171 191.5 58C191.5 63.0829 189.171 67.9635 184.881 72.4453C180.588 76.9297 174.353 80.9916 166.609 84.4131C151.124 91.2556 129.695 95.5 106 95.5C82.3046 95.5 60.8762 91.2556 45.3906 84.4131C37.6472 80.9916 31.4117 76.9297 27.1191 72.4453C22.8291 67.9635 20.5 63.0829 20.5 58C20.5 52.9171 22.8291 48.0365 27.1191 43.5547C31.4117 39.0703 37.6472 35.0084 45.3906 31.5869C60.8762 24.7444 82.3046 20.5 106 20.5Z" stroke="#D6C7E8" stroke-opacity="0.14"/>
+</g>
+<defs>
+<filter id="filter0_f_0_4" x="0" y="0" width="212" height="116" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="10" result="effect1_foregroundBlur_0_4"/>
+</filter>
+</defs>
+</svg>

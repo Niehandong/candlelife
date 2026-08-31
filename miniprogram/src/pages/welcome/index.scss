@@ -1,0 +1,9 @@
+.welcome {
+  &__mark { font-size: 64px; letter-spacing: 12px; color: var(--purple-dark); margin-bottom: 24px; }
+  &__slogan { display: block; font-size: 34px; margin-bottom: 40px; }
+  &__note { display: block; font-size: 26px; line-height: 1.8; color: var(--night-muted); }
+  &__cta {
+    margin-top: 80px; background: var(--purple-dark); color: var(--white);
+    border-radius: 999px; font-size: 30px;
+  }
+}

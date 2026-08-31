@@ -1,0 +1,12 @@
+{
+  "miniprogramRoot": "dist/",
+  "projectname": "zhusheng",
+  "description": "烛生 · 陪你按时睡觉",
+  "appid": "touristappid",
+  "setting": {
+    "urlCheck": false,
+    "es6": false,
+    "minified": false
+  },
+  "compileType": "miniprogram"
+}

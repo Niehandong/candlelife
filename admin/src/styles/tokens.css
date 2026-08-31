@@ -1,0 +1,27 @@
+/* 设计令牌。逐字取自 prototype/zhusheng-admin.html 的 :root。
+   src/styles/__tests__/tokens.test.ts 会比对两边，改这里必须同时对得上原型。 */
+:root {
+  --bg: #f7f6f8;
+  --surface: #fffdfb;
+  --soft: #f1eef3;
+  --primary-soft: #eee8f2;
+  --ink: #594e5f;
+  --muted: #716575;
+  --primary: #806890;
+  --primary-deep: #675472;
+  --border: #e5dfe5;
+  --success: #526f59;
+  --success-bg: #eaf0e9;
+  --warn: #80613d;
+  --warn-bg: #f5ecdf;
+  --danger: #95536a;
+
+  --shadow: 0 10px 30px rgba(78, 61, 88, 0.07);
+  --sidebar: 220px;
+  --r: 18px;
+  --z-nav: 20;
+  --z-overlay: 80;
+  --z-toast: 100;
+
+  font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+}

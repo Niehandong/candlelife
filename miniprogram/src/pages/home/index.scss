@@ -1,0 +1,41 @@
+.home {
+  &__question {
+    display: block;
+    font-size: 34px;
+    margin-bottom: 48px;
+  }
+
+  &__meta {
+    display: flex;
+    gap: 32px;
+    margin-top: 40px;
+  }
+
+  &__streak, &__wake {
+    font-size: 26px;
+    color: var(--night-muted);
+  }
+
+  &__cta {
+    margin-top: 96px;
+    background: var(--purple-dark);
+    color: var(--night);
+    border-radius: 999px;
+    font-size: 30px;
+  }
+
+  &__fail {
+    display: block;
+    font-size: 27px;
+    line-height: 1.9;
+    color: var(--night-muted);
+  }
+
+  &__retry {
+    margin-top: 48px;
+    background: var(--purple-dark);
+    color: var(--night);
+    border-radius: 999px;
+    font-size: 28px;
+  }
+}

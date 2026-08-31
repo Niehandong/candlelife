@@ -1,0 +1,10 @@
+.night-card {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 32px 0; border-bottom: 1px solid rgba(89, 78, 95, 0.08);
+  &__date { font-size: 32px; color: var(--paper-ink); }
+  &__badge {
+    font-size: 24px; color: var(--paper-muted);
+    padding: 6px 18px; border-radius: 999px; background: rgba(89, 78, 95, 0.06);
+    &.is-ok { color: var(--purple); background: rgba(185, 163, 205, 0.28); }
+  }
+}

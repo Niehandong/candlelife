@@ -1,0 +1,9 @@
+.collection {
+  &__title { display: block; font-size: 40px; color: var(--paper-ink); }
+  &__summary { display: block; margin-top: 12px; font-size: 26px; color: var(--paper-muted); }
+  &__empty {
+    display: block; margin-top: 40px; font-size: 27px;
+    line-height: 1.9; color: var(--paper-muted);
+  }
+  &__grid { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+}

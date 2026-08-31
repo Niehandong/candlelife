@@ -1,0 +1,13 @@
+.journal {
+  &__title { display: block; font-size: 40px; color: var(--paper-ink); margin-bottom: 40px; }
+  &__empty { display: block; font-size: 27px; line-height: 1.9; color: var(--paper-muted); }
+  &__fail { display: flex; flex-direction: column; align-items: flex-start; gap: 24px; }
+  &__fail-text { display: block; font-size: 27px; line-height: 1.9; color: var(--paper-muted); }
+  &__retry {
+    background: var(--purple);
+    color: var(--white);
+    border-radius: 999px;
+    font-size: 28px;
+  }
+  &__list { display: flex; flex-direction: column; }
+}

@@ -1,0 +1,19 @@
+.countdown {
+  &__label {
+    display: block;
+    font-size: 26px;
+    color: var(--night-muted);
+    margin-bottom: 16px;
+  }
+
+  &__value {
+    display: block;
+    font-size: 72px;
+    letter-spacing: 2px;
+    font-variant-numeric: tabular-nums;
+    color: var(--night-ink);
+  }
+
+  &--near &__value { color: var(--purple-dark); }
+  &--sleep &__value { color: var(--night-muted); }
+}

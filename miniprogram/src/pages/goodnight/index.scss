@@ -1,0 +1,7 @@
+.goodnight {
+  &__title { display: block; font-size: 38px; line-height: 1.7; margin-bottom: 48px; }
+  &__note { display: flex; flex-direction: column; gap: 16px; }
+  &__streak { font-size: 30px; color: var(--purple-dark); }
+  &__tip { font-size: 28px; color: var(--night-muted); line-height: 1.8; }
+  &__back { display: block; margin-top: 96px; font-size: 28px; color: var(--night-muted); }
+}

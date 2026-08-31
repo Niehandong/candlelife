@@ -1,0 +1,32 @@
+page {
+  /* ── 纸屏（夜记 / 收藏 / 设置）：原型亮色主题 ────────────── */
+  --paper: #fbf6ef;          /* 原型 :root --paper */
+  --paper-2: #fff9f4;        /* 原型 :root --paper-2 */
+  --paper-ink: #594e5f;      /* 原型 :root --ink */
+  --paper-muted: #716575;    /* 原型 :root --muted */
+
+  /* ── 夜屏（今晚 / 仪式 / 晚安）：原型暗色主题 ──────────────── */
+  --night: #17141d;          /* 原型暗色 html,body background */
+  --night-2: #2b2440;        /* 原型 :root --night */
+  --night-ink: #f3ebf1;      /* 原型暗色 --ink */
+  --night-muted: #c9becb;    /* 原型暗色 --muted */
+  --dawn: #252130;           /* 原型暗色 --paper，开场页背景 */
+
+  /* ── 强调色与装饰：原型的紫/薰衣草系 ─────────────────────── */
+  --purple: #806890;         /* 原型亮色 --purple，纸屏强调 */
+  --purple-dark: #b9a3cd;    /* 原型暗色 --purple，夜屏强调 */
+  --lav: #ddd7f1;            /* 原型 --lav */
+  --pink: #f2d5e3;           /* 原型 --pink */
+  --line: #dcc7d2;           /* 原型亮色 --line */
+  --line-dark: #655a69;      /* 原型暗色 --line */
+  --white: #fff9f4;          /* 原型 --white */
+
+  --shadow: 0 12px 30px rgba(64, 41, 77, .12);   /* 原型 --shadow */
+  --ease: cubic-bezier(.22, .74, .24, 1);        /* 原型 --ease */
+  --scrim: rgba(23, 20, 29, .45);   /* 视频/图片上的半透明蒙层，底色取自 --night */
+
+  background: var(--night);
+  color: var(--night-ink);
+  /* 原型正文字体；标题另用 "Noto Serif SC", serif */
+  font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+}

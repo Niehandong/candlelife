@@ -1,0 +1,14 @@
+.screen {
+  min-height: 100vh;
+  background-size: cover;
+  background-position: center;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: calc(110px + env(safe-area-inset-bottom));
+
+  &--paper { background-color: var(--paper); color: var(--paper-ink); }
+  &--dawn  { background-color: var(--dawn); }
+
+  &__inner { padding: 48px 40px; }
+
+  &--still * { animation: none !important; transition: none !important; }
+}

@@ -1,0 +1,20 @@
+.settings {
+  &__title { display: block; font-size: 40px; color: var(--paper-ink); margin-bottom: 32px; }
+  &__row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 32px 0; border-bottom: 1px solid rgba(89, 78, 95, 0.08);
+    &--stack { flex-direction: column; align-items: flex-start; gap: 10px; }
+  }
+  &__label { font-size: 30px; color: var(--paper-ink); }
+  &__value { font-size: 30px; color: var(--purple); }
+  &__input { font-size: 30px; text-align: right; color: var(--paper-ink); }
+  &__note { font-size: 24px; color: var(--paper-muted); line-height: 1.7; }
+  &__danger {
+    margin-top: 72px; background: transparent; color: #9b3b33;
+    border: 1px solid rgba(155, 59, 51, 0.4); border-radius: 999px; font-size: 28px;
+  }
+  &__legal {
+    display: block; margin-top: 40px; font-size: 22px;
+    line-height: 1.9; color: var(--paper-muted);
+  }
+}

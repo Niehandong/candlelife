@@ -1,0 +1,653 @@
+{
+  "_comment": "双实现契约。backend/tests/test_domain_contract.py 与 miniprogram 的 vitest 读同一份文件。规则变更须先改此文件，让两边同时变红。",
+  "evaluate_completion": [
+    {
+      "name": "容差内按时",
+      "in": {
+        "planned_time": "23:30",
+        "completed_at": "2026-08-27T23:59:00+08:00",
+        "tz": "Asia/Shanghai",
+        "tolerance_minutes": 30,
+        "min_time": "20:00",
+        "max_time": "02:00"
+      },
+      "out": {
+        "ritual_date": "2026-08-27",
+        "late_minutes": 29,
+        "eligible": true
+      }
+    },
+    {
+      "name": "跨午夜超出容差",
+      "in": {
+        "planned_time": "23:30",
+        "completed_at": "2026-08-28T00:01:00+08:00",
+        "tz": "Asia/Shanghai",
+        "tolerance_minutes": 30,
+        "min_time": "20:00",
+        "max_time": "02:00"
+      },
+      "out": {
+        "ritual_date": "2026-08-27",
+        "late_minutes": 31,
+        "eligible": false
+      }
+    },
+    {
+      "name": "凌晨计划时间归属前一晚",
+      "in": {
+        "planned_time": "00:30",
+        "completed_at": "2026-08-28T00:45:00+08:00",
+        "tz": "Asia/Shanghai",
+        "tolerance_minutes": 30,
+        "min_time": "20:00",
+        "max_time": "02:00"
+      },
+      "out": {
+        "ritual_date": "2026-08-27",
+        "late_minutes": 15,
+        "eligible": true
+      }
+    },
+    {
+      "name": "修正3：下午完成落在资格窗口外，不合格",
+      "in": {
+        "planned_time": "23:30",
+        "completed_at": "2026-08-27T17:30:00+08:00",
+        "tz": "Asia/Shanghai",
+        "tolerance_minutes": 30,
+        "min_time": "20:00",
+        "max_time": "02:00"
+      },
+      "out": {
+        "ritual_date": "2026-08-27",
+        "late_minutes": 0,
+        "eligible": false
+      }
+    },
+    {
+      "name": "修正3：提前入睡但在窗口内，合格",
+      "in": {
+        "planned_time": "23:30",
+        "completed_at": "2026-08-27T21:00:00+08:00",
+        "tz": "Asia/Shanghai",
+        "tolerance_minutes": 30,
+        "min_time": "20:00",
+        "max_time": "02:00"
+      },
+      "out": {
+        "ritual_date": "2026-08-27",
+        "late_minutes": 0,
+        "eligible": true
+      }
+    },
+    {
+      "name": "修正3：凌晨3点超出窗口上界，不合格",
+      "in": {
+        "planned_time": "23:30",
+        "completed_at": "2026-08-28T03:00:00+08:00",
+        "tz": "Asia/Shanghai",
+        "tolerance_minutes": 30,
+        "min_time": "20:00",
+        "max_time": "02:00"
+      },
+      "out": {
+        "ritual_date": "2026-08-27",
+        "late_minutes": 210,
+        "eligible": false
+      }
+    },
+    {
+      "name": "恰好卡在容差边界，合格",
+      "in": {
+        "planned_time": "23:30",
+        "completed_at": "2026-08-28T00:00:00+08:00",
+        "tz": "Asia/Shanghai",
+        "tolerance_minutes": 30,
+        "min_time": "20:00",
+        "max_time": "02:00"
+      },
+      "out": {
+        "ritual_date": "2026-08-27",
+        "late_minutes": 30,
+        "eligible": true
+      }
+    },
+    {
+      "name": "用户在纽约，按其本地时间判定",
+      "in": {
+        "planned_time": "23:30",
+        "completed_at": "2026-08-27T23:45:00-04:00",
+        "tz": "America/New_York",
+        "tolerance_minutes": 30,
+        "min_time": "20:00",
+        "max_time": "02:00"
+      },
+      "out": {
+        "ritual_date": "2026-08-27",
+        "late_minutes": 15,
+        "eligible": true
+      }
+    },
+    {
+      "name": "DST 春季跳变：计划时刻落在不存在的一小时内",
+      "in": {
+        "planned_time": "02:45",
+        "completed_at": "2026-03-08T03:10:00-04:00",
+        "tz": "America/New_York",
+        "tolerance_minutes": 30,
+        "min_time": "20:00",
+        "max_time": "03:00"
+      },
+      "out": {
+        "ritual_date": "2026-03-07",
+        "late_minutes": 25,
+        "eligible": false
+      }
+    },
+    {
+      "name": "DST 秋季重叠：计划时刻在重复的一小时内",
+      "in": {
+        "planned_time": "01:30",
+        "completed_at": "2026-11-01T01:45:00-04:00",
+        "tz": "America/New_York",
+        "tolerance_minutes": 30,
+        "min_time": "20:00",
+        "max_time": "03:00"
+      },
+      "out": {
+        "ritual_date": "2026-10-31",
+        "late_minutes": 15,
+        "eligible": true
+      }
+    }
+  ],
+  "current_ritual_night": [
+    {
+      "name": "凌晨2点属于前一晚",
+      "in": {
+        "now": "2026-08-28T02:00:00+08:00",
+        "tz": "Asia/Shanghai"
+      },
+      "out": "2026-08-27"
+    },
+    {
+      "name": "上午9点属于当天",
+      "in": {
+        "now": "2026-08-28T09:00:00+08:00",
+        "tz": "Asia/Shanghai"
+      },
+      "out": "2026-08-28"
+    },
+    {
+      "name": "恰好6点属于当天",
+      "in": {
+        "now": "2026-08-28T06:00:00+08:00",
+        "tz": "Asia/Shanghai"
+      },
+      "out": "2026-08-28"
+    },
+    {
+      "name": "5点59分仍属前一晚",
+      "in": {
+        "now": "2026-08-28T05:59:00+08:00",
+        "tz": "Asia/Shanghai"
+      },
+      "out": "2026-08-27"
+    }
+  ],
+  "calculate_on_time_streak": [
+    {
+      "name": "连续3晚",
+      "in": {
+        "records": [
+          [
+            "2026-08-25",
+            true
+          ],
+          [
+            "2026-08-26",
+            true
+          ],
+          [
+            "2026-08-27",
+            true
+          ]
+        ],
+        "current_night": "2026-08-27"
+      },
+      "out": 3
+    },
+    {
+      "name": "中间断一晚只算最近连续段",
+      "in": {
+        "records": [
+          [
+            "2026-08-24",
+            true
+          ],
+          [
+            "2026-08-26",
+            true
+          ],
+          [
+            "2026-08-27",
+            true
+          ]
+        ],
+        "current_night": "2026-08-27"
+      },
+      "out": 2
+    },
+    {
+      "name": "最近一晚未按时则为0",
+      "in": {
+        "records": [
+          [
+            "2026-08-26",
+            true
+          ],
+          [
+            "2026-08-27",
+            false
+          ]
+        ],
+        "current_night": "2026-08-27"
+      },
+      "out": 0
+    },
+    {
+      "name": "今晚尚未完成，昨晚记录仍算数",
+      "in": {
+        "records": [
+          [
+            "2026-08-26",
+            true
+          ],
+          [
+            "2026-08-27",
+            true
+          ]
+        ],
+        "current_night": "2026-08-28"
+      },
+      "out": 2
+    },
+    {
+      "name": "修正2：停用多日后衰减为0",
+      "in": {
+        "records": [
+          [
+            "2026-08-01",
+            true
+          ],
+          [
+            "2026-08-02",
+            true
+          ],
+          [
+            "2026-08-03",
+            true
+          ]
+        ],
+        "current_night": "2026-08-21"
+      },
+      "out": 0
+    },
+    {
+      "name": "修正2：只隔一天不衰减",
+      "in": {
+        "records": [
+          [
+            "2026-08-26",
+            true
+          ],
+          [
+            "2026-08-27",
+            true
+          ]
+        ],
+        "current_night": "2026-08-28"
+      },
+      "out": 2
+    },
+    {
+      "name": "修正2：隔两天即衰减",
+      "in": {
+        "records": [
+          [
+            "2026-08-26",
+            true
+          ],
+          [
+            "2026-08-27",
+            true
+          ]
+        ],
+        "current_night": "2026-08-29"
+      },
+      "out": 0
+    },
+    {
+      "name": "无记录为0",
+      "in": {
+        "records": [],
+        "current_night": "2026-08-27"
+      },
+      "out": 0
+    },
+    {
+      "name": "中间有未按时的一晚会中断",
+      "in": {
+        "records": [
+          [
+            "2026-08-25",
+            true
+          ],
+          [
+            "2026-08-26",
+            false
+          ],
+          [
+            "2026-08-27",
+            true
+          ]
+        ],
+        "current_night": "2026-08-27"
+      },
+      "out": 1
+    },
+    {
+      "name": "最近夜记晚于当前仪式夜（设备时间被回拨）",
+      "in": {
+        "records": [
+          [
+            "2026-08-26",
+            true
+          ],
+          [
+            "2026-08-27",
+            true
+          ]
+        ],
+        "current_night": "2026-08-25"
+      },
+      "out": 2
+    }
+  ],
+  "reward_draw_count": [
+    {
+      "in": {
+        "streak": 1
+      },
+      "out": 1
+    },
+    {
+      "in": {
+        "streak": 2
+      },
+      "out": 1
+    },
+    {
+      "in": {
+        "streak": 3
+      },
+      "out": 2
+    },
+    {
+      "in": {
+        "streak": 4
+      },
+      "out": 1
+    },
+    {
+      "in": {
+        "streak": 6
+      },
+      "out": 1
+    },
+    {
+      "in": {
+        "streak": 7
+      },
+      "out": 2
+    },
+    {
+      "in": {
+        "streak": 8
+      },
+      "out": 1
+    },
+    {
+      "in": {
+        "streak": 13
+      },
+      "out": 1
+    },
+    {
+      "in": {
+        "streak": 14
+      },
+      "out": 3
+    },
+    {
+      "in": {
+        "streak": 15
+      },
+      "out": 2
+    },
+    {
+      "in": {
+        "streak": 29
+      },
+      "out": 2
+    },
+    {
+      "in": {
+        "streak": 30
+      },
+      "out": 3
+    },
+    {
+      "in": {
+        "streak": 31
+      },
+      "out": 2
+    },
+    {
+      "in": {
+        "streak": 59
+      },
+      "out": 2
+    },
+    {
+      "in": {
+        "streak": 60
+      },
+      "out": 3
+    },
+    {
+      "in": {
+        "streak": 100
+      },
+      "out": 2
+    }
+  ],
+  "can_reveal": [
+    {
+      "name": "修正1：仪式夜次日6点前不可揭晓",
+      "in": {
+        "ritual_date": "2026-08-27",
+        "is_eligible": true,
+        "reward_revealed_at": null,
+        "now": "2026-08-28T05:59:00+08:00",
+        "tz": "Asia/Shanghai"
+      },
+      "out": false
+    },
+    {
+      "name": "修正1：仪式夜次日6点整可揭晓",
+      "in": {
+        "ritual_date": "2026-08-27",
+        "is_eligible": true,
+        "reward_revealed_at": null,
+        "now": "2026-08-28T06:00:00+08:00",
+        "tz": "Asia/Shanghai"
+      },
+      "out": true
+    },
+    {
+      "name": "修正1：凌晨完成者与常规完成者同日揭晓",
+      "in": {
+        "ritual_date": "2026-08-27",
+        "is_eligible": true,
+        "reward_revealed_at": null,
+        "now": "2026-08-28T07:30:00+08:00",
+        "tz": "Asia/Shanghai"
+      },
+      "out": true
+    },
+    {
+      "name": "完成当晚不可揭晓",
+      "in": {
+        "ritual_date": "2026-08-27",
+        "is_eligible": true,
+        "reward_revealed_at": null,
+        "now": "2026-08-27T23:59:00+08:00",
+        "tz": "Asia/Shanghai"
+      },
+      "out": false
+    },
+    {
+      "name": "不合格不可揭晓",
+      "in": {
+        "ritual_date": "2026-08-27",
+        "is_eligible": false,
+        "reward_revealed_at": null,
+        "now": "2026-08-29T09:00:00+08:00",
+        "tz": "Asia/Shanghai"
+      },
+      "out": false
+    },
+    {
+      "name": "已揭晓不可重复",
+      "in": {
+        "ritual_date": "2026-08-27",
+        "is_eligible": true,
+        "reward_revealed_at": "2026-08-28T07:00:00+08:00",
+        "now": "2026-08-29T09:00:00+08:00",
+        "tz": "Asia/Shanghai"
+      },
+      "out": false
+    },
+    {
+      "name": "数日后仍可揭晓",
+      "in": {
+        "ritual_date": "2026-08-27",
+        "is_eligible": true,
+        "reward_revealed_at": null,
+        "now": "2026-09-05T10:00:00+08:00",
+        "tz": "Asia/Shanghai"
+      },
+      "out": true
+    },
+    {
+      "name": "DST 春季跳变：now 在跳变之前，未到揭晓窗口",
+      "in": {
+        "ritual_date": "2026-03-07",
+        "is_eligible": true,
+        "reward_revealed_at": null,
+        "now": "2026-03-08T01:30:00-05:00",
+        "tz": "America/New_York"
+      },
+      "out": false
+    },
+    {
+      "name": "DST 春季跳变：now 在跳变之后但早于揭晓窗口",
+      "in": {
+        "ritual_date": "2026-03-07",
+        "is_eligible": true,
+        "reward_revealed_at": null,
+        "now": "2026-03-08T05:30:00-04:00",
+        "tz": "America/New_York"
+      },
+      "out": false
+    },
+    {
+      "name": "DST 春季跳变：now 恰好等于揭晓窗口开启时刻",
+      "in": {
+        "ritual_date": "2026-03-07",
+        "is_eligible": true,
+        "reward_revealed_at": null,
+        "now": "2026-03-08T06:00:00-04:00",
+        "tz": "America/New_York"
+      },
+      "out": true
+    },
+    {
+      "name": "DST 秋季重叠：now 在重复小时内（跳变前瞬间，fold=0）",
+      "in": {
+        "ritual_date": "2026-10-31",
+        "is_eligible": true,
+        "reward_revealed_at": null,
+        "now": "2026-11-01T01:30:00-04:00",
+        "tz": "America/New_York"
+      },
+      "out": false
+    },
+    {
+      "name": "DST 秋季重叠：now 在重复小时内（跳变后瞬间，fold=1，与上一条同墙钟不同瞬间）",
+      "in": {
+        "ritual_date": "2026-10-31",
+        "is_eligible": true,
+        "reward_revealed_at": null,
+        "now": "2026-11-01T01:30:00-05:00",
+        "tz": "America/New_York"
+      },
+      "out": false
+    }
+  ],
+  "summarize_collection": [
+    {
+      "in": {
+        "art_ids": [
+          "a",
+          "a",
+          "b"
+        ]
+      },
+      "out": {
+        "total_cards": 3,
+        "unique_works": 2,
+        "counts": {
+          "a": 2,
+          "b": 1
+        }
+      }
+    },
+    {
+      "in": {
+        "art_ids": []
+      },
+      "out": {
+        "total_cards": 0,
+        "unique_works": 0,
+        "counts": {}
+      }
+    },
+    {
+      "in": {
+        "art_ids": [
+          "x"
+        ]
+      },
+      "out": {
+        "total_cards": 1,
+        "unique_works": 1,
+        "counts": {
+          "x": 1
+        }
+      }
+    }
+  ]
+}

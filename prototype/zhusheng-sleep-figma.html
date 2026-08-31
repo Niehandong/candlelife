@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <base href="./">
+  <meta name="theme-color" content="#2b2440">
+  <meta name="description" content="烛生：用一场温柔的睡前仪式，帮你结束今天。">
+  <title>烛生 · 睡前仪式</title>
+  <link rel="preload" href="./image/zhusheng-sleep-ui/home-room.jpg" as="image" fetchpriority="high">
+  <style>
+    :root{
+      --paper:#fbf6ef;--paper-2:#fff9f4;--ink:#594e5f;--muted:#716575;
+      --soft-muted:#766a79;--purple:#806890;--purple-2:#88749c;--lav:#ddd7f1;
+      --pink:#f2d5e3;--line:#dcc7d2;--white:#fff9f4;--night:#2b2440;
+      --shadow:0 12px 30px rgba(64,41,77,.12);--ease:cubic-bezier(.22,.74,.24,1);
+      --content:min(334px,calc(100% - 56px));
+      font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%;background:#e9e2e8;color:var(--ink);-webkit-font-smoothing:antialiased}
+    body{min-width:320px;display:grid;place-items:center;overflow:hidden;background:radial-gradient(circle at 20% 12%,#fff9f4,transparent 34%),radial-gradient(circle at 84% 86%,#dcd4ea,transparent 42%),#eee8ed}
+    button,input{font:inherit;color:inherit}
+    button{border:0;cursor:pointer;touch-action:manipulation}
+    button:focus-visible,input:focus-visible{outline:2px solid #806890;outline-offset:3px}
+    button:active{transform:scale(.985)}
+    img{display:block;max-width:100%}
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.asset-error{display:none!important}
+
+    #app{position:relative;width:min(100vw,430px);height:min(100dvh,844px);min-height:700px;overflow:hidden;border-radius:42px;background:var(--paper);box-shadow:0 28px 80px rgba(61,49,70,.22);isolation:isolate}
+    .screen{position:absolute;inset:0;visibility:hidden;opacity:0;transform:translateY(10px);overflow:hidden;background:var(--paper);transition:opacity .42s var(--ease),transform .42s var(--ease),visibility 0s .42s}
+    .screen.active{visibility:visible;opacity:1;transform:none;transition-delay:0s}
+    .screen.scene{color:#fff5ed;background:#2b2440}
+    .scene-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none}
+    .scene-overlay{position:absolute;inset:0;pointer-events:none}
+    .scene-overlay.home{background:linear-gradient(180deg,rgba(46,36,56,.42) 0 31%,transparent 52%,rgba(46,36,56,.35) 70%,rgba(46,36,56,.58))}
+    .scene-overlay.prep{background:linear-gradient(180deg,rgba(47,37,60,.43),transparent 43%,rgba(51,40,63,.38))}
+    .scene-overlay.quiet{background:linear-gradient(180deg,rgba(36,27,49,.52),transparent 42%,rgba(36,27,49,.44))}
+    .scene-overlay.goodnight{background:linear-gradient(180deg,rgba(31,26,46,.13),rgba(31,23,43,.08) 42%,rgba(31,23,43,.66) 68%,rgba(31,23,43,.86))}
+    .paper-screen{background:var(--paper)}
+    .paper-screen:before,.paper-screen:after{content:"";position:absolute;pointer-events:none;background-repeat:no-repeat;background-size:contain;opacity:.68}
+    .paper-screen:before{right:-70px;top:-100px;width:280px;height:280px;background-image:url("image/zhusheng-sleep-ui/pink-wash.svg")}
+    .paper-screen:after{left:-118px;bottom:-34px;width:260px;height:300px;background-image:url("image/zhusheng-sleep-ui/lav-wash.svg")}
+    .content{position:relative;z-index:2;width:var(--content);margin-inline:auto}
+    .serif{font-family:"Songti SC","STSong","Noto Serif CJK SC",serif;font-weight:500}
+    .screen-title{margin:0;font-size:26px;line-height:1.35;font-weight:500;color:var(--ink)}
+    .screen-lead{margin:8px 0 0;font-size:12px;line-height:1.55;color:var(--muted)}
+    .progress{display:grid;place-items:center;width:132px;height:28px;border-radius:999px;background:var(--pink);font-size:10px;font-weight:500;color:#574b63}
+    .primary{width:100%;height:56px;border-radius:28px;background:var(--purple);color:#fff9f4;font-size:15px;font-weight:500;box-shadow:0 8px 20px rgba(64,41,77,.14);transition:transform .16s,filter .2s}
+    .primary:hover{filter:brightness(1.04)}
+    .primary.light{background:rgba(255,248,240,.96);color:#4a3b58;box-shadow:0 8px 24px rgba(28,18,38,.18)}
+    .text-button{min-height:44px;background:transparent;color:var(--muted);font-size:12px}
+    .wash-card{border:1px solid rgba(220,199,210,.84);background:rgba(255,252,248,.82);border-radius:22px}
+    .top-copy{position:absolute;z-index:3;top:60px;left:50%;width:var(--content);transform:translateX(-50%)}
+    .hidden{display:none!important}
+
+    /* First-use journey: welcome, guidance, account and story prologue */
+    .auth-screen{background:#e9dce4;color:#55485e}
+    .auth-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:saturate(.72) brightness(1.12);pointer-events:none}
+    .auth-wash{position:absolute;inset:0;background:linear-gradient(180deg,rgba(252,246,249,.56),rgba(249,238,244,.72) 54%,rgba(247,238,245,.88));pointer-events:none}
+    .account-screen .auth-bg{filter:saturate(.68) brightness(1.08)}
+    .account-screen .auth-wash{background:linear-gradient(90deg,rgba(250,242,247,.88),rgba(250,242,247,.7) 72%,rgba(239,228,241,.58)),linear-gradient(180deg,rgba(255,250,252,.36),rgba(243,232,241,.9))}
+    .welcome-lockup{position:absolute;z-index:2;left:50%;top:49%;width:var(--content);transform:translate(-50%,-50%);text-align:center}
+    .welcome-lockup h1{margin:0;font-family:"Songti SC","STSong","Noto Serif CJK SC",serif;font-size:31px;line-height:1.25;font-weight:500;letter-spacing:.08em}
+    .welcome-lockup p{margin:8px 0 0;font-size:13px;color:#6e6173}
+    .auth-bottom{position:absolute;z-index:3;left:50%;bottom:54px;width:var(--content);transform:translateX(-50%);text-align:center}
+    .auth-bottom .primary{height:52px}
+    .auth-screen .primary{background:#806890;color:#fff9f4}
+    .auth-switch{display:inline-flex;align-items:center;justify-content:center;min-height:44px;margin-top:4px;padding:0 14px;background:transparent;color:#6f6177;font-size:12px}
+    .auth-switch strong{margin-left:7px;color:#745e87;font-weight:600}
+    .guide-screen .auth-bg{filter:saturate(.78) brightness(.94)}
+    .guide-screen .auth-wash{background:linear-gradient(180deg,rgba(35,25,46,.08) 0 36%,rgba(52,38,56,.2) 55%,rgba(242,231,240,.92) 74%,rgba(247,238,244,.98))}
+    .guide-copy{position:absolute;z-index:2;left:50%;bottom:182px;width:var(--content);transform:translateX(-50%)}
+    .guide-copy h1{max-width:12ch;margin:0;font-family:"Songti SC","STSong","Noto Serif CJK SC",serif;font-size:25px;line-height:1.42;font-weight:500}
+    .guide-copy p{max-width:29ch;margin:10px 0 0;font-size:13px;line-height:1.65;color:#685b6c}
+    .guide-progress{position:absolute;z-index:3;left:50%;top:54px;width:72px;height:4px;transform:translateX(-50%);display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+    .guide-progress span{border-radius:999px;background:rgba(255,249,252,.5);box-shadow:0 0 0 1px rgba(74,54,83,.12)}
+    .guide-progress span.active{background:#806890;box-shadow:none}
+    .auth-back{position:absolute;z-index:4;left:18px;top:48px;min-width:56px;min-height:44px;padding:0 12px;border-radius:22px;background:rgba(255,250,253,.72);color:#65576d;font-size:12px;box-shadow:0 4px 14px rgba(71,48,79,.07)}
+    .auth-panel{position:absolute;z-index:3;left:50%;top:113px;width:var(--content);transform:translateX(-50%)}
+    .auth-panel h1{margin:0;font-family:"Songti SC","STSong","Noto Serif CJK SC",serif;font-size:26px;line-height:1.35;font-weight:500}
+    .auth-panel>p{margin:7px 0 0;font-size:12px;color:#6c5f71;line-height:1.55}
+    .auth-form{display:grid;gap:14px;margin-top:30px}
+    .auth-field{display:grid;gap:7px;color:#55485e;font-size:12px}
+    .auth-input-wrap{position:relative}
+    .auth-field input{width:100%;height:52px;padding:0 15px;border:1px solid rgba(109,83,119,.12);border-radius:15px;background:rgba(255,252,253,.94);color:#514557;font-size:14px;outline:0;box-shadow:0 5px 18px rgba(68,45,76,.04)}
+    .auth-field input:focus{border-color:#806890;box-shadow:0 0 0 3px rgba(128,104,144,.13)}
+    .auth-field input[aria-invalid="true"]{border-color:#9b5871;background:#fff8fa}
+    .password-toggle{position:absolute;right:8px;top:4px;min-width:52px;height:44px;background:transparent;color:#6d5c75;font-size:12px}
+    .field-error{min-height:0;margin:0;color:#8d4f67;font-size:12px;line-height:1.4}
+    .field-error:empty{display:none}
+    .form-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .auth-panel>.form-row{justify-content:center}
+    .consent{display:flex;align-items:flex-start;gap:9px;font-size:12px;line-height:1.5;color:#6b5e70}
+    .consent input{width:18px;height:18px;margin:0;accent-color:#806890}
+    .link-button{min-height:44px;padding:0;background:transparent;color:#745f84;font-size:12px}
+    .auth-submit{margin-top:4px;height:52px}
+    .auth-submit:disabled,.mini-login:disabled{cursor:wait;filter:saturate(.7);opacity:.72}
+    .auth-separator{display:flex;align-items:center;gap:12px;margin:16px 0 10px;color:#7a6d7d;font-size:12px}
+    .auth-separator:before,.auth-separator:after{content:"";height:1px;flex:1;background:rgba(121,101,128,.2)}
+    .apple-action{width:100%;height:50px;border-radius:15px;background:rgba(255,252,253,.94);color:#504455;font-size:13px;box-shadow:0 5px 18px rgba(68,45,76,.04)}
+    .reset-note{margin-top:30px;padding:16px;border-radius:16px;background:rgba(255,252,253,.75);color:#6c5f71;font-size:12px;line-height:1.65}
+    .mini-brand{display:grid;place-items:center;width:72px;height:72px;margin:4px 0 22px;border:1px solid rgba(128,104,144,.16);border-radius:24px;background:linear-gradient(145deg,rgba(255,250,252,.96),rgba(232,219,238,.94));box-shadow:0 10px 26px rgba(68,45,76,.08)}
+    .mini-brand:before{content:"";width:22px;height:34px;border-radius:55% 55% 48% 48%;background:linear-gradient(180deg,#f8d9b1 0 42%,#9b749e 44% 100%);clip-path:polygon(50% 0,82% 37%,74% 100%,26% 100%,18% 37%)}
+    .mini-points{display:grid;gap:0;margin:26px 0 24px;border-top:1px solid rgba(121,101,128,.16)}
+    .mini-point{display:grid;grid-template-columns:28px 1fr;gap:8px;align-items:center;min-height:52px;border-bottom:1px solid rgba(121,101,128,.16);font-size:12px;color:#66596d}
+    .mini-point b{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:rgba(128,104,144,.12);color:#735e82;font-size:11px;font-weight:600}
+    .mini-login{height:52px}
+    .mini-privacy{margin:14px 2px 0;color:#786b7b;font-size:11px;line-height:1.6;text-align:center}
+    .avatar-field{display:grid;justify-items:center;gap:10px;margin:0 0 6px}
+    .avatar-button{position:relative;display:grid;place-items:center;width:88px;height:88px;padding:0;overflow:hidden;border:1px solid rgba(128,104,144,.18);border-radius:50%;background:linear-gradient(145deg,#fff9f4,#e8dcec);box-shadow:0 8px 22px rgba(68,45,76,.08)}
+    .avatar-button img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+    .avatar-placeholder{font-family:"Songti SC","STSong",serif;font-size:20px;color:#806890}
+    .avatar-field small{font-size:11px;color:#756778}
+    .avatar-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+    .profile-note{display:flex;align-items:flex-start;gap:8px;margin-top:8px;padding:12px 13px;border-left:3px solid #b89ab2;border-radius:6px 15px 15px 6px;background:rgba(221,215,241,.64);font-size:11px;line-height:1.55;color:#6b5e70}
+    .guide-skip{display:flex;width:100%;min-height:44px;align-items:center;justify-content:center;background:transparent;color:#6f6177;font-size:12px}
+    .permission-card{display:grid;grid-template-columns:78px 1fr;align-items:center;gap:13px;margin-top:32px;padding:16px;border-radius:17px;background:rgba(255,252,253,.9);box-shadow:0 6px 20px rgba(68,45,76,.05)}
+    .permission-card strong{display:block;font-size:22px;font-variant-numeric:tabular-nums}.permission-card small{display:block;margin-top:5px;color:#716575;font-size:12px;line-height:1.45}
+    .story-screen{background:#2b2440;color:#fff7f1}
+    .story-video,.story-poster{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#2b2440}
+    .story-poster{display:none}
+    .story-scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(35,26,45,.35),transparent 38%,rgba(30,22,40,.78));pointer-events:none}
+    .story-top{position:absolute;z-index:3;top:48px;left:24px;right:24px;display:flex;align-items:center;justify-content:space-between}
+    .story-top strong{font-family:"Songti SC","STSong","Noto Serif CJK SC",serif;font-size:17px;font-weight:500}
+    .story-skip{min-width:52px;min-height:44px;border-radius:22px;background:rgba(50,39,61,.58);color:#fff7f1;font-size:12px;backdrop-filter:blur(8px)}
+    .story-footer{position:absolute;z-index:3;left:50%;bottom:42px;width:var(--content);transform:translateX(-50%);text-align:center}
+    .story-footer h1{margin:0;font-family:"Songti SC","STSong","Noto Serif CJK SC",serif;font-size:23px;font-weight:500;line-height:1.45}
+    .story-footer p{margin:8px 0 14px;color:rgba(255,247,241,.86);font-size:12px}
+    .story-controls{display:flex;align-items:center;justify-content:center;gap:10px}
+    .story-continue{display:none;width:190px;height:48px;border-radius:24px;background:rgba(255,248,241,.94);color:#4b3e55;font-size:13px}
+    .story-progress{position:absolute;z-index:4;left:0;right:0;bottom:0;height:3px;background:rgba(255,248,241,.16);overflow:hidden}
+    .story-progress span{display:block;width:100%;height:100%;transform:scaleX(0);transform-origin:left center;background:rgba(255,248,241,.78);will-change:transform}
+    .story-screen.video-error .story-video{display:none}.story-screen.video-error .story-poster{display:block}.story-screen.video-error .story-continue,.story-screen.video-paused .story-continue,.story-screen.video-complete .story-continue{display:block}
+    .story-screen.video-error .story-footer p:before{content:"视频暂时没有加载出来。"}
+
+    /* 01 · 今晚 */
+    .home-brand{position:absolute;z-index:3;top:64px;left:50%;width:var(--content);transform:translateX(-50%);font-family:"Songti SC","STSong",serif;font-size:18px}
+    .home-copy{position:absolute;z-index:3;top:116px;left:50%;width:var(--content);transform:translateX(-50%)}
+    .home-copy h1{margin:0;font-family:"Songti SC","STSong",serif;font-size:33px;line-height:1.4;font-weight:500}
+    .home-copy p{margin:4px 0 0;font-size:13px;color:rgba(242,229,237,.96)}
+    .time-card{position:absolute;z-index:3;top:224px;left:50%;width:var(--content);height:164px;transform:translateX(-50%);padding:16px 20px;border:1px solid rgba(255,245,237,.18);border-radius:22px;background:rgba(64,48,74,.76);backdrop-filter:blur(10px);box-shadow:0 8px 24px rgba(31,18,38,.12)}
+    .time-card label{display:block;font-size:11px;color:rgba(242,229,237,.96)}
+    .bedtime{margin-top:3px;display:flex;align-items:center;gap:10px}
+    .bedtime input{width:190px;padding:0;border:0;background:transparent;color:#faf2e8;font-size:42px;line-height:1.25;font-weight:500;letter-spacing:.02em;color-scheme:dark}
+    .time-divider{height:1px;background:rgba(250,242,232,.28)}
+    .time-meta{display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:rgba(242,229,237,.96)}
+    .distance{display:grid;grid-template-columns:110px 1fr;align-items:end;margin-top:6px}
+    .distance span{font-size:12px;text-align:center;color:rgba(242,229,237,.96)}
+    .distance strong{text-align:right;font-size:20px;font-weight:500;font-variant-numeric:tabular-nums}
+    .home-start{position:absolute;z-index:5;left:50%;bottom:102px;width:var(--content);transform:translateX(-50%)}
+
+    /* 02-04: ritual writing */
+    .ritual-head{position:absolute;z-index:2;top:60px;left:50%;width:var(--content);transform:translateX(-50%)}
+    .ritual-head h1{margin:12px 0 0;font-family:"Noto Serif SC",serif;font-size:25px;line-height:1.4;font-weight:500}
+    .ritual-head p{margin:3px 0 0;color:var(--muted);font-size:13px;line-height:1.55}
+    .reason-list{position:absolute;z-index:2;top:204px;left:50%;width:var(--content);transform:translateX(-50%);display:grid;gap:0;overflow:hidden;border:1px solid var(--line);border-radius:22px;background:rgba(255,252,248,.8);box-shadow:0 9px 26px rgba(64,41,77,.06)}
+    .reason-card{position:relative;width:100%;height:76px;padding:12px 48px 12px 16px;text-align:left;border:0;border-bottom:1px solid rgba(220,199,210,.78);border-radius:0;background:transparent}
+    .reason-card:last-child{border-bottom:0}
+    .reason-card strong{display:block;font-size:14px;font-weight:500}.reason-card small{display:block;margin-top:7px;font-size:11px;color:var(--soft-muted)}
+    .reason-card:after{content:"";position:absolute;right:20px;top:29px;width:10px;height:10px;border:1px solid var(--line);border-radius:50%}
+    .reason-card.selected{background:linear-gradient(90deg,rgba(242,213,227,.72),rgba(221,215,241,.62))}.reason-card.selected:after{border:0;background:var(--purple-2)}
+    .gentle-reply{position:absolute;z-index:2;left:50%;top:526px;width:min(302px,calc(100% - 88px));min-height:62px;transform:translateX(-50%);display:grid;place-items:center;padding:12px 18px;border-left:3px solid #b89ab2;border-radius:8px 20px 20px 8px;background:var(--lav);text-align:center;font-family:"Songti SC","STSong",serif;font-size:13px;line-height:1.55}
+    .flow-actions{position:absolute;z-index:3;left:50%;bottom:58px;width:var(--content);transform:translateX(-50%);text-align:center}
+    .flow-actions .text-button{display:block;width:100%}
+    .writing-sheet{position:absolute;z-index:2;top:208px;left:50%;width:var(--content);height:216px;transform:translateX(-50%);border-left:3px solid rgba(200,145,174,.68);border-radius:8px 24px 24px 8px;background:repeating-linear-gradient(180deg,rgba(255,252,248,.92) 0 71px,rgba(225,211,222,.72) 71px 72px);box-shadow:0 10px 28px rgba(59,41,61,.06);overflow:hidden}
+    .writing-row{position:relative;display:block;height:72px;padding:12px 16px 12px 51px}
+    .writing-row:last-child{border-bottom:0}
+    .writing-row b{position:absolute;left:16px;top:14px;color:#c891ae;font-size:10px}
+    .writing-row input{width:100%;height:38px;border:0;background:transparent;font-size:14px;color:#5f5568;outline:0}
+    .writing-row input::placeholder{color:#908392}
+    .privacy-note{position:absolute;z-index:2;top:438px;left:50%;width:var(--content);height:48px;transform:translateX(-50%);display:flex;align-items:center;padding:0 10px;color:var(--muted);font-size:11px}
+    .write-count{position:absolute;z-index:2;top:500px;width:100%;text-align:center;color:var(--muted);font-size:11px}
+    .gratitude-actions{position:absolute;z-index:2;left:50%;top:548px;width:var(--content);transform:translateX(-50%);text-align:center}
+    .plan-sheet{position:absolute;z-index:2;top:220px;left:50%;width:var(--content);transform:translateX(-50%);display:grid;gap:0;overflow:hidden;border-left:3px solid rgba(200,145,174,.68);border-radius:8px 24px 24px 8px;background:rgba(255,250,249,.84);box-shadow:0 10px 28px rgba(59,41,61,.05)}
+    .plan-row{position:relative;height:68px;padding:12px 42px 12px 51px;border:0;border-bottom:1px solid rgba(220,199,210,.78);border-radius:0;background:transparent}
+    .plan-row:last-child{border-bottom:0}
+    .plan-row b{position:absolute;left:16px;top:14px;font-size:10px;color:#e8c0d4}.plan-row img{position:absolute;right:24px;top:18px;width:10px;height:10px}
+    .plan-row input{width:100%;height:36px;border:0;background:transparent;outline:0;font-size:14px}
+    .closure-note{position:absolute;z-index:2;left:50%;top:452px;width:var(--content);height:82px;transform:translateX(-50%);padding:14px 18px;border:0;border-left:3px solid #ad91ae;border-radius:8px 20px 20px 8px;background:var(--lav)}
+    .closure-note strong{font-size:13px;font-weight:500}.closure-note p{margin:7px 0 0;font-size:11px;color:var(--soft-muted)}
+
+    /* 05-08: immersive ritual */
+    .scene-center{position:absolute;z-index:3;top:58px;left:50%;width:var(--content);transform:translateX(-50%);text-align:center}
+    .scene-ribbon{display:grid;place-items:center;width:112px;height:28px;margin:auto;border:1px solid rgba(255,245,237,.22);border-radius:14px;background:rgba(74,59,88,.58);backdrop-filter:blur(6px);font-size:10px;font-weight:500}
+    .scene-center .label{margin:17px 0 0;font-size:13px;color:rgba(242,229,237,.96)}
+    .scene-time{margin:4px 0 0;font-size:27px;font-weight:500;font-variant-numeric:tabular-nums}
+    .scene-message{margin:19px 0 0;font-family:"Noto Serif SC",serif;font-size:20px;line-height:1.55;font-weight:500}
+    .candle-light{position:absolute;z-index:2;left:16px;top:487px;width:150px;height:150px;animation:flicker 2.6s ease-in-out infinite alternate;pointer-events:none}
+    .candle-core{position:absolute;z-index:2;left:47px;top:523px;width:88px;height:88px;animation:flicker 1.8s ease-in-out infinite alternate-reverse;pointer-events:none}
+    .quiet-light{left:39px;top:512px;width:104px;height:104px}.quiet-core{left:62px;top:536px;width:58px;height:58px}
+    @keyframes flicker{from{opacity:.76;transform:scale(.98)}to{opacity:1;transform:scale(1.025)}}
+    .flame-status{position:absolute;z-index:3;top:652px;width:100%;text-align:center;color:rgba(242,229,237,.96);font-size:11px}
+    .scene-action{position:absolute;z-index:3;left:50%;bottom:70px;width:var(--content);transform:translateX(-50%)}
+    .quiet-copy{position:absolute;z-index:3;top:80px;width:100%;text-align:center}.quiet-copy p{margin:0;font-size:12px;color:rgba(242,229,237,.96)}.quiet-copy strong{display:block;margin-top:8px;font-size:24px;font-weight:500;font-variant-numeric:tabular-nums}.quiet-copy h2{margin:22px 0 0;font-family:"Noto Serif SC",serif;font-size:18px;font-weight:500}
+    .quiet-state{position:absolute;z-index:3;left:50%;bottom:64px;width:226px;height:44px;transform:translateX(-50%);border:1px solid rgba(255,245,237,.28);border-radius:22px;background:rgba(61,48,73,.48);color:rgba(242,229,237,.9);font-size:10px;backdrop-filter:blur(7px)}
+    .goodnight-copy{position:absolute;z-index:3;left:50%;top:555px;width:var(--content);transform:translateX(-50%);text-align:center}.goodnight-copy h1{margin:0;font-family:"Noto Serif SC",serif;font-size:31px;font-weight:500}.goodnight-copy p{margin:6px 0 0;font-size:13px;color:rgba(242,229,237,.96)}
+    .breath{position:absolute;z-index:2;left:50%;top:704px;width:172px;height:76px;transform:translateX(-50%);animation:breathe 3.6s ease-in-out infinite}
+    @keyframes breathe{0%,100%{opacity:.55;transform:translateX(-50%) scale(.88)}50%{opacity:1;transform:translateX(-50%) scale(1.08)}}
+    .breath-prompt{position:absolute;z-index:4;left:50%;top:717px;width:286px;height:40px;transform:translateX(-50%);display:grid;place-items:center;background:linear-gradient(90deg,transparent,rgba(43,36,64,.44) 22%,rgba(43,36,64,.44) 78%,transparent);font-size:12px}
+    .reward-copy{position:absolute;z-index:3;top:64px;left:50%;width:var(--content);transform:translateX(-50%);color:#4d4057}.reward-copy h1{margin:0;font-family:"Noto Serif SC",serif;font-size:28px;font-weight:500}.reward-copy p{margin:6px 0 0;font-size:12px;color:rgba(107,94,112,.94)}
+    .reward-sheet{position:absolute;z-index:3;left:50%;bottom:20px;width:min(350px,calc(100% - 40px));height:376px;transform:translateX(-50%);padding:34px 14px 18px;border:1px solid rgba(189,156,176,.34);border-radius:28px;background:rgba(250,245,237,.96);box-shadow:0 16px 32px rgba(56,41,64,.15);color:#4d4057;backdrop-filter:blur(11px)}
+    .reward-art{display:grid;grid-template-columns:154px 1fr;gap:16px}.reward-art img{width:154px;height:154px;object-fit:cover;border:6px solid rgba(255,250,242,.96);border-radius:20px;box-shadow:0 9px 22px rgba(51,36,61,.16)}.reward-art h2{margin:7px 0 0;font-family:"Noto Serif SC",serif;font-size:22px;font-weight:500}.reward-art p{font-size:11px;line-height:1.45;color:rgba(107,94,112,.94)}
+    .reward-note{margin:16px 0 0;padding:14px 8px 0;border-top:1px solid rgba(204,186,201,.7)}.reward-note strong{font-size:14px;color:#6e5482}.reward-note p{margin:8px 0 0;font-size:11px;color:rgba(107,94,112,.94)}.reward-sheet .primary{position:absolute;left:14px;right:14px;bottom:18px;width:calc(100% - 28px);height:52px}
+
+    /* 09-13: records and collection */
+    .app-head{position:absolute;z-index:2;top:66px;left:50%;width:var(--content);transform:translateX(-50%)}
+    .history-card{position:absolute;z-index:2;top:152px;left:50%;width:var(--content);height:234px;transform:translateX(-50%);padding:15px 17px;border:1px solid rgba(217,197,212,.72);border-radius:22px;background:rgba(255,252,248,.8);box-shadow:0 8px 24px rgba(64,46,71,.07)}
+    .history-card h2{margin:0;font-family:"Noto Serif SC",serif;font-size:15px;font-weight:500}.history-card small{display:block;margin-top:5px;color:var(--soft-muted);font-size:10px}.period{position:absolute;right:16px;top:11px;width:72px;height:30px;border:1px solid var(--line);border-radius:15px;background:var(--lav);font-size:10px}.chart{position:relative;height:98px;margin-top:12px;border-radius:16px;overflow:hidden}.chart img{position:absolute;left:8px;top:4px;width:270px;height:60px}.weekdays{position:absolute;left:8px;right:8px;bottom:0;display:flex;justify-content:space-around;color:var(--soft-muted);font-size:8px}.history-meta{display:flex;justify-content:space-between;margin-top:8px;font-size:11px}.history-meta strong{font-weight:500}.history-meta span{color:#e19b75}
+    .night-list{position:absolute;z-index:2;top:410px;left:50%;width:var(--content);transform:translateX(-50%)}
+    .night-list h2{margin:0 0 8px;font-size:14px;font-weight:500}.night-row{position:relative;width:100%;height:72px;padding:10px 72px 8px 16px;background:transparent;text-align:left;border-left:1px solid rgba(189,167,197,.65)}.night-row:before{content:"";position:absolute;left:-5px;top:25px;width:9px;height:9px;border-radius:50%;background:#c58caf}.night-row strong{font-size:12px;font-weight:500}.night-row small{display:block;margin-top:6px;font-size:10px;color:rgba(113,101,117,.82)}.night-row em{position:absolute;right:16px;top:22px;color:var(--purple-2);font-size:10px;font-style:normal}.night-row.late em{color:#e19b75}.view-all{width:100%;height:44px;background:transparent;color:#806a94;font-size:12px}
+    .detail-head{position:absolute;z-index:2;top:60px;left:50%;width:var(--content);transform:translateX(-50%);display:flex;align-items:center;gap:8px}.back{width:36px;height:44px;background:transparent;text-align:left;font-size:26px}.detail-head h1{margin:0;font-family:"Noto Serif SC",serif;font-size:21px;font-weight:500}
+    .comparison{position:absolute;z-index:2;top:122px;left:50%;width:var(--content);height:124px;transform:translateX(-50%);padding:14px 18px;border:1.1px solid var(--line);border-radius:20px;background:#fff4f6}.comparison small{color:var(--soft-muted);font-size:10px}.comparison-times{display:flex;justify-content:space-between;margin-top:12px;font-size:26px;font-weight:500}.comparison-times span:last-child{color:var(--purple-2)}.comparison-note{margin-top:7px;padding-top:7px;border-top:1px solid var(--line);text-align:center;color:#efa96b;font-size:11px}
+    .detail-body{position:absolute;z-index:2;top:280px;left:50%;width:var(--content);transform:translateX(-50%)}.detail-body h2{margin:0 0 14px;font-size:13px;font-weight:500}.detail-items{display:grid;gap:13px;margin-bottom:26px}.detail-item{display:grid;grid-template-columns:26px 1fr;gap:8px;font-size:12px}.detail-item b{color:#e8c0d4;font-size:10px}.detail-separator{height:1px;margin:24px 0;background:var(--line)}.reward-link{display:grid;grid-template-columns:70px 1fr 20px;align-items:center;gap:16px;height:90px;margin-top:34px;padding:10px;border:1.1px solid var(--line);border-radius:20px;background:var(--lav);text-align:left}.reward-link img{width:70px;height:70px;object-fit:cover;border:6px solid #fff9f4;border-radius:18px}.reward-link small{font-size:10px;color:var(--soft-muted)}.reward-link strong{display:block;margin-top:5px;font-family:"Noto Serif SC",serif;font-size:14px;font-weight:500}
+    .collection-main{position:absolute;z-index:2;top:184px;left:50%;width:var(--content);transform:translateX(-50%);background:transparent;text-align:left}.collection-main img{width:100%;height:260px;object-fit:cover;border:6px solid #fff9f4;border-radius:24px;box-shadow:0 10px 22px rgba(51,36,61,.14)}.collection-main h2{margin:5px 0 0;font-family:"Noto Serif SC",serif;font-size:20px;font-weight:500}.collection-main small{font-size:10px;color:rgba(107,94,112,.94)}
+    .locked-row{position:absolute;z-index:2;top:540px;left:50%;width:var(--content);transform:translateX(-50%);display:grid;grid-template-columns:repeat(3,1fr);gap:23px}.locked-card{background:transparent;padding:0}.locked-card img{width:96px;height:80px;object-fit:contain}.locked-card span{display:block;margin-top:5px;font-family:"Noto Serif SC",serif;font-size:12px}.next-reward{position:absolute;z-index:2;top:674px;left:50%;width:var(--content);transform:translateX(-50%);padding-top:7px;border-top:1px solid rgba(216,199,211,.7);font-size:11px}.next-reward strong{display:block;margin-top:4px;font-size:13px;font-weight:500}
+    .art-image{position:absolute;z-index:2;top:114px;left:50%;width:var(--content);height:338px;transform:translateX(-50%);object-fit:cover;border:6px solid #fff9f4;border-radius:18px}.art-copy{position:absolute;z-index:2;top:482px;left:50%;width:var(--content);transform:translateX(-50%)}.art-copy h1{margin:0;font-family:"Noto Serif SC",serif;font-size:26px;font-weight:500}.art-copy p{margin:5px 0 0;font-size:11px;color:var(--soft-muted)}.story-blank{height:178px;margin-top:24px;padding:15px 18px;border:1.1px solid var(--line);border-radius:20px;background:#fff9f4}.story-blank strong{font-size:12px;color:var(--purple-2)}.story-blank small{display:block;margin-top:98px;font-size:10px;color:var(--soft-muted)}
+    .settings-list{position:absolute;z-index:2;top:156px;left:50%;width:var(--content);transform:translateX(-50%)}.setting-row{position:relative;height:82px;padding:13px 92px 12px 16px;border-bottom:1px solid rgba(220,206,216,.72)}.setting-row strong{font-size:13px;font-weight:500}.setting-row small{display:block;margin-top:6px;color:var(--muted);font-size:10px}.setting-action{position:absolute;right:16px;top:16px;min-width:66px;height:44px;background:transparent;text-align:right;color:#806a94;font-size:12px}.privacy{position:absolute;z-index:2;top:500px;left:50%;width:var(--content);transform:translateX(-50%)}.privacy>h2{margin:0 0 14px;font-size:13px;font-weight:500}.privacy-card{height:130px;padding:14px 16px;border:1px solid rgba(209,194,209,.42);border-radius:20px;background:rgba(242,235,245,.92)}.privacy-card strong{font-size:13px;font-weight:500}.privacy-card p{margin:6px 0 0;font-size:10px;line-height:1.55;color:var(--muted)}.privacy-card a{display:block;margin-top:11px;color:#806a94;font-size:10px;text-decoration:none}.clear-data{position:absolute;z-index:2;top:686px;left:50%;width:var(--content);transform:translateX(-50%);background:transparent;color:rgba(107,94,112,.82);font-size:11px}
+
+    /* Shared bottom navigation */
+    .bottom-nav{position:absolute;z-index:20;left:50%;bottom:20px;width:min(350px,calc(100% - 40px));height:66px;transform:translateX(-50%);display:none;grid-template-columns:repeat(4,1fr);padding:5px;border:1.2px solid var(--line);border-radius:28px;background:#fff9f4;box-shadow:0 10px 30px rgba(55,42,62,.08)}
+    .bottom-nav.show{display:grid}.bottom-nav.dark{border-color:rgba(250,242,232,.24);background:rgba(48,38,59,.72);backdrop-filter:blur(10px)}
+    .bottom-nav button{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:transparent;color:rgba(165,154,167,.9);font-size:11.5px}.bottom-nav button img{width:24px;height:24px}.bottom-nav button.active{color:#806a94}.bottom-nav.dark button{color:rgba(200,187,203,.9)}.bottom-nav.dark button.active{color:#fff5ed}
+    .toast{position:absolute;z-index:40;left:50%;bottom:98px;max-width:calc(100% - 56px);transform:translate(-50%,12px);padding:10px 16px;border-radius:999px;background:rgba(43,36,64,.9);color:#fff9f4;font-size:11px;opacity:0;pointer-events:none;transition:.25s}.toast.show{opacity:1;transform:translate(-50%,0)}
+
+    [data-reduced="true"] *,[data-reduced="true"] *:before,[data-reduced="true"] *:after{animation-duration:.001ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.1s!important}
+    @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.001ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.1s!important}}
+    /* Refinement pass: system typography, accessible contrast, calm paper rhythm */
+    .ritual-head h1,.gentle-reply,.scene-message,.quiet-copy h2,.goodnight-copy h1,.reward-copy h1,.reward-art h2,.history-card h2,.detail-head h1,.reward-link strong,.collection-main h2,.locked-card span,.art-copy h1{font-family:"Songti SC","STSong","Noto Serif CJK SC",serif}
+    input::placeholder{color:#766a79;opacity:1}
+    .setting-action,.period,.back,.share-action{min-height:44px}
+    .share-action{margin-left:auto;min-width:52px;background:transparent;color:var(--purple);font-size:12px;text-align:right}
+    .quiet-hint{position:absolute;z-index:3;left:0;right:0;bottom:44px;margin:0;text-align:center;color:rgba(242,229,237,.86);font-size:11px}
+    .detail-empty{padding:12px 14px;border-left:3px solid #b89ab2;border-radius:6px 16px 16px 6px;background:var(--lav);color:var(--muted);font-size:12px}
+    .clear-data.armed{color:#805064;font-weight:600}
+    #app[data-ritual-phase="near"] .quiet-light{opacity:.62;filter:brightness(.88)}
+    #app[data-ritual-phase="near"] .quiet-core{opacity:.76;filter:brightness(.9)}
+    #app[data-ritual-phase="sleep"] .quiet-light{opacity:.34;filter:brightness(.72)}
+    #app[data-ritual-phase="sleep"] .quiet-core{opacity:.5;filter:brightness(.78)}
+    #app[data-ritual-phase="near"] .scene-overlay.quiet{background:linear-gradient(180deg,rgba(29,22,41,.7),rgba(31,24,43,.26) 40%,rgba(27,20,39,.65))}
+    #app[data-ritual-phase="sleep"] .scene-overlay.quiet{background:linear-gradient(180deg,rgba(24,18,35,.82),rgba(26,19,38,.46) 40%,rgba(20,15,31,.78))}
+
+    @media(prefers-color-scheme:dark){
+      :root{--paper:#252130;--paper-2:#2e2938;--ink:#f3ebf1;--muted:#c9becb;--soft-muted:#bfb3c1;--purple:#b9a3cd;--purple-2:#c0acd0;--lav:#484052;--pink:#533f4d;--line:#655a69;--white:#f6eef3;--shadow:0 12px 30px rgba(12,9,17,.28)}
+      html,body{background:#17141d;color:var(--ink)}
+      .paper-screen{background:var(--paper)}
+      .paper-screen:before,.paper-screen:after{opacity:.16}
+      .reason-list,.writing-sheet,.plan-sheet,.history-card,.story-blank{background-color:rgba(48,42,58,.96)}
+      .reason-card.selected{background:linear-gradient(90deg,rgba(94,63,81,.88),rgba(73,65,91,.92))}
+      .writing-sheet{background:repeating-linear-gradient(180deg,rgba(48,42,58,.96) 0 71px,rgba(101,90,105,.78) 71px 72px)}
+      .plan-sheet{background:rgba(48,42,58,.96)}
+      .plan-row input,.writing-row input{color:var(--ink)}
+      input::placeholder{color:#c0b4c2}
+      .time-card{background:rgba(50,39,60,.8)}
+      .comparison,.privacy-card,.reward-link,.closure-note,.gentle-reply{background:var(--lav)}
+      .bottom-nav{border-color:var(--line);background:rgba(43,38,51,.96);box-shadow:0 10px 30px rgba(9,7,13,.28)}
+      .collection-main img,.art-image,.reward-link img{border-color:#393340}
+      .locked-card img{filter:brightness(.82) saturate(.75)}
+      .history-meta span,.night-row.late em,.comparison-note{color:#f0b18f}
+    }
+
+    @media(max-height:760px){
+      #app{min-height:0;border-radius:0}.screen{overflow:hidden}.bottom-nav{position:absolute;bottom:10px;height:58px;max-width:390px}.home-start{bottom:82px;height:52px}.flow-actions{bottom:12px}.flow-actions .primary,.gratitude-actions .primary{height:52px}.scene-action{bottom:18px;height:52px}.reward-sheet{bottom:6px;height:350px}.app-head{top:30px}.history-card{top:108px;height:198px}.night-list{top:322px}.night-row{height:60px}.view-all{height:38px}
+      .ritual-head{top:26px}.ritual-head .progress{height:24px}.ritual-head h1{margin-top:8px;font-size:21px}.ritual-head p{font-size:11.5px}
+      .reason-list{top:136px}.reason-card{height:62px;padding-top:9px;padding-bottom:9px}.reason-card small{margin-top:4px}.reason-card:after{top:25px}.gentle-reply{top:396px;min-height:56px}.flow-actions .text-button{min-height:38px}
+      .writing-sheet{top:148px;height:192px}.writing-row{height:64px}.privacy-note{top:350px;height:42px}.write-count{top:398px}.gratitude-actions{top:auto;bottom:12px}
+      .plan-sheet{top:154px}.plan-row{height:58px}.closure-note{top:340px;height:72px}.closure-note p{margin-top:4px}
+      .scene-center{top:26px}.scene-center .label{margin-top:10px}.scene-message{margin-top:10px}.candle-light{top:392px}.candle-core{top:428px}.quiet-light{top:418px}.quiet-core{top:442px}.flame-status{top:auto;bottom:82px}.quiet-state{bottom:38px}.quiet-hint{bottom:20px}
+      .goodnight-copy{top:auto;bottom:128px}.breath{top:auto;bottom:50px}.breath-prompt{top:auto;bottom:63px}
+      .reward-copy{top:30px}.reward-art{grid-template-columns:134px 1fr}.reward-art img{width:134px;height:134px}.reward-sheet .primary{height:48px}
+      .collection-main{top:124px}.collection-main img{height:218px}.locked-row{top:414px}.next-reward{top:532px}
+      .settings-list{top:104px}.setting-row{height:68px}.privacy{top:388px}.privacy-card{height:116px}.clear-data{top:526px}
+      .auth-panel{top:72px}.auth-form{margin-top:18px;gap:10px}.auth-field input{height:48px}.auth-separator{margin:10px 0 6px}.welcome-lockup{top:45%}.guide-copy{bottom:154px}.guide-progress{top:28px}.auth-bottom{bottom:12px}.permission-card{margin-top:20px}.mini-brand{width:60px;height:60px;margin-bottom:14px}.mini-points{margin:16px 0}.mini-point{min-height:46px}.avatar-button{width:72px;height:72px}.avatar-field{gap:6px}
+    }
+    @media(max-width:430px){body{display:block}#app{width:100vw;max-width:none;height:100dvh;max-height:none;min-height:0;border-radius:0;box-shadow:none}}
+    @media(max-width:340px){:root{--content:calc(100% - 40px)}.home-copy h1{font-size:29px}.bedtime input{width:150px;font-size:38px}.time-card{padding-inline:16px}.distance{grid-template-columns:90px 1fr}.bottom-nav{width:calc(100% - 32px)}}
+
+    /* Readability and resilient-layout pass */
+    .progress,.scene-ribbon{font-size:12px}
+    .time-card label,.time-meta,.reason-card small,.privacy-note,.write-count,.closure-note p,
+    .flame-status,.quiet-state,.reward-art p,.reward-note p,.history-card small,.history-meta,
+    .night-row small,.night-row em,.comparison small,.comparison-note,.reward-link small,
+    .collection-main small,.next-reward,.art-copy p,.story-blank small,.setting-row small,
+    .privacy-card p,.privacy-card a,.clear-data,.toast,.quiet-hint{font-size:12px}
+    .weekdays{font-size:11px}
+    .night-row strong,.detail-item,.story-blank strong,.bottom-nav button{font-size:13px}
+    .period,.share-action{font-size:12px}
+    .detail-item b,.writing-row b,.plan-row b{font-size:11px}
+    .screen-lead,.ritual-head p{font-size:13px}
+    .night-row{min-height:76px;height:auto;padding-block:12px}
+    .night-row em{top:24px}
+    .history-card{min-height:244px;height:auto}
+    .privacy-card{min-height:144px;height:auto}
+    .sample-label{display:inline-grid;place-items:center;min-height:24px;margin-top:9px;padding:3px 9px;border:1px solid var(--line);border-radius:999px;background:rgba(255,249,244,.64);color:var(--muted);font-size:12px;font-weight:500}
+    .reward-sheet>.sample-label{position:absolute;top:12px;right:14px;margin:0}
+    .reward-image-frame{position:relative;display:block;width:154px;height:154px;border-radius:20px;overflow:hidden;background:linear-gradient(110deg,rgba(221,215,241,.65) 8%,rgba(255,249,244,.88) 18%,rgba(221,215,241,.65) 33%);background-size:220% 100%;animation:imageLoading 1.6s linear infinite}
+    .reward-image-frame .stateful-image{height:100%;opacity:0;transition:opacity .3s var(--ease)}
+    .reward-image-frame .stateful-image.is-loaded{opacity:1}.reward-image-frame.is-error{animation:none}.reward-image-frame.is-error .image-error-state{display:grid}.reward-image-frame.is-error .stateful-image{display:none}
+
+    .record-screen{overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+    .record-screen::-webkit-scrollbar{display:none}
+    .record-screen[data-screen="journal"],.record-screen[data-screen="collection"],.record-screen[data-screen="settings"]{padding-bottom:124px}
+    .record-screen[data-screen="journal-detail"],.record-screen[data-screen="art-detail"]{padding-bottom:46px}
+    .record-screen .app-head{position:relative;top:auto;left:auto;transform:none;margin:58px auto 0}
+    .record-screen[data-screen="journal"] .history-card{position:relative;top:auto;left:auto;transform:none;margin:24px auto 0}
+    .record-screen[data-screen="journal"] .night-list{position:relative;top:auto;left:auto;transform:none;margin:24px auto 0}
+    .record-screen[data-screen="journal-detail"] .detail-head,
+    .record-screen[data-screen="art-detail"] .detail-head{position:relative;top:auto;left:auto;transform:none;margin:40px auto 0}
+    .record-screen[data-screen="journal-detail"] .comparison{position:relative;top:auto;left:auto;transform:none;margin:18px auto 0;min-height:132px;height:auto}
+    .record-screen[data-screen="journal-detail"] .detail-body{position:relative;top:auto;left:auto;transform:none;margin:28px auto 0}
+    .record-screen[data-screen="journal-detail"] .clear-data{position:relative;top:auto;left:auto;transform:none;display:block;margin:28px auto 0;min-height:44px}
+    .record-screen[data-screen="collection"] .collection-main{position:relative;top:auto;left:auto;transform:none;display:block;margin:24px auto 0}
+    .collection-image-frame{position:relative;display:block;width:100%;height:260px;border-radius:24px;overflow:hidden;background:linear-gradient(110deg,rgba(221,215,241,.65) 8%,rgba(255,249,244,.88) 18%,rgba(221,215,241,.65) 33%);background-size:220% 100%;animation:imageLoading 1.6s linear infinite}
+    .collection-image-frame .stateful-image{height:100%;opacity:0;transition:opacity .3s var(--ease)}
+    .collection-image-frame .stateful-image.is-loaded{opacity:1}
+    .collection-image-frame.is-error{animation:none}.collection-image-frame.is-error .image-error-state{display:grid}.collection-image-frame.is-error .stateful-image{display:none}
+    .record-screen[data-screen="collection"] .locked-row{position:relative;top:auto;left:auto;transform:none;margin:34px auto 0}
+    .record-screen[data-screen="collection"] .next-reward{position:relative;top:auto;left:auto;transform:none;margin:28px auto 0;padding-bottom:18px}
+    .record-screen[data-screen="art-detail"] .art-image-frame{position:relative;width:var(--content);aspect-ratio:4/3;margin:18px auto 0;border-radius:18px;overflow:hidden;background:linear-gradient(110deg,rgba(221,215,241,.65) 8%,rgba(255,249,244,.88) 18%,rgba(221,215,241,.65) 33%);background-size:220% 100%;animation:imageLoading 1.6s linear infinite}
+    .record-screen[data-screen="art-detail"] .art-image{position:relative;top:auto;left:auto;width:100%;height:100%;transform:none;border:6px solid #fff9f4;opacity:0;transition:opacity .3s var(--ease)}
+    .record-screen[data-screen="art-detail"] .art-image.is-loaded{opacity:1}
+    .record-screen[data-screen="art-detail"] .art-copy{position:relative;top:auto;left:auto;transform:none;margin:26px auto 0}
+    .record-screen[data-screen="settings"] .settings-list{position:relative;top:auto;left:auto;transform:none;margin:24px auto 0}
+    .record-screen[data-screen="settings"] .setting-row{min-height:84px;height:auto}
+    .record-screen[data-screen="settings"] .privacy{position:relative;top:auto;left:auto;transform:none;margin:34px auto 0}
+    .record-screen[data-screen="settings"] .clear-data{position:relative;top:auto;left:auto;transform:none;display:block;margin:28px auto 0;min-height:44px}
+
+    .empty-state{position:relative;z-index:2;width:var(--content);margin:44px auto 0;padding:34px 24px 28px;border:1px solid rgba(208,190,207,.66);border-radius:24px;background:rgba(255,252,248,.72);text-align:center;box-shadow:0 10px 28px rgba(64,41,77,.06)}
+    .empty-state .moon-mark{display:grid;place-items:center;width:54px;height:54px;margin:0 auto 18px;border-radius:50%;background:linear-gradient(145deg,var(--pink),var(--lav));color:var(--purple);font-family:"Songti SC","STSong",serif;font-size:25px}
+    .empty-state h2{margin:0;font-size:18px;font-weight:500}
+    .empty-state p{margin:10px auto 22px;max-width:24ch;color:var(--muted);font-size:13px;line-height:1.65}
+    .empty-state .primary{height:52px}
+    .resume-note{position:absolute;z-index:5;left:50%;top:412px;width:var(--content);transform:translateX(-50%);display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;padding:12px 14px;border:1px solid rgba(255,245,237,.22);border-radius:18px;background:rgba(57,44,69,.72);backdrop-filter:blur(10px);color:#fff5ed}
+    .resume-note strong{display:block;font-size:13px;font-weight:500}.resume-note small{display:block;margin-top:3px;color:rgba(242,229,237,.88);font-size:12px}
+    .resume-note button{min-width:72px;min-height:44px;border-radius:22px;background:rgba(255,248,240,.94);color:#4a3b58;font-size:12px}
+    .image-error-state{position:absolute;inset:0;display:none;place-items:center;padding:20px;background:linear-gradient(145deg,var(--lav),var(--paper-2));color:var(--muted);font-size:13px;line-height:1.6;text-align:center}
+    .art-image-frame.is-error{animation:none}.art-image-frame.is-error .image-error-state{display:grid}.art-image-frame.is-error .art-image{display:none}
+    @keyframes imageLoading{to{background-position:-220% 0}}
+    @media(prefers-reduced-motion:reduce){.art-image-frame{animation:none!important}}
+    @media(prefers-reduced-transparency:reduce){.time-card,.bottom-nav.dark,.resume-note,.quiet-state,.scene-ribbon,.reward-sheet{backdrop-filter:none;background-color:rgba(48,38,59,.96)}}
+    @media(prefers-color-scheme:dark){.sample-label,.empty-state{background:rgba(48,42,58,.94)}.image-error-state{background:linear-gradient(145deg,var(--lav),var(--paper-2))}}
+    .art-collected-date{text-align:center;margin-top:22px!important;font-size:12px!important}
+    .offline-tools{position:relative;z-index:3;width:var(--content);margin:18px auto 0;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .setting-tool{min-height:46px;padding:0 12px;border:1px solid rgba(128,104,144,.2);border-radius:14px;background:rgba(255,252,248,.82);color:var(--purple);font-size:12px}
+    .setting-tool:first-child{grid-column:1/-1}
+    .legal-overlay{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:20px;background:rgba(35,28,43,.42);backdrop-filter:blur(6px)}
+    .legal-overlay[hidden]{display:none}
+    .legal-dialog{width:min(390px,100%);max-height:min(680px,88dvh);overflow:auto;padding:22px;border-radius:24px;background:var(--paper-2);box-shadow:0 22px 60px rgba(31,23,43,.25)}
+    .legal-head{display:flex;align-items:center;justify-content:space-between;gap:16px}.legal-head h2{margin:0;font-size:19px}.legal-head button{width:44px;height:44px;border-radius:50%;background:var(--lav);font-size:20px}
+    .legal-copy h3{margin:22px 0 8px;font-size:14px}.legal-copy p{margin:0;color:var(--muted);font-size:13px;line-height:1.8}
+    #collectionGrid{position:relative;z-index:2;width:var(--content);margin:24px auto 0;display:grid;gap:16px}
+    #collectionGrid .collection-main{width:100%;margin:0}
+    @media(max-height:760px){.record-screen .app-head{margin-top:34px}.record-screen[data-screen="journal"] .history-card,.record-screen[data-screen="journal"] .night-list,.record-screen[data-screen="settings"] .settings-list{margin-top:20px}.resume-note{top:378px}.collection-image-frame{height:218px}.reward-image-frame{width:134px;height:134px}}
+  </style>
+</head>
+<body>
+  <main id="app" aria-live="polite">
+    <section class="screen auth-screen active" data-screen="welcome" aria-labelledby="welcomeTitle">
+      <img class="auth-bg" src="./image/zhusheng-sleep-ui/home-room.jpg" width="430" height="844" fetchpriority="high" alt="柔和月色中的卧室">
+      <div class="auth-wash"></div>
+      <div class="welcome-lockup"><h1 id="welcomeTitle">烛生</h1><p>把今天轻轻放下</p></div>
+      <div class="auth-bottom"><button class="primary" data-next="guide-rest">进入烛生</button><p class="mini-privacy">游客模式 · 夜记默认保存在本地</p></div>
+    </section>
+
+    <section class="screen auth-screen guide-screen" data-screen="guide-rest" aria-labelledby="guideRestTitle">
+      <img class="auth-bg" src="image/zhusheng-story-sequence/02-overhead-journal.png" width="1024" height="1536" loading="lazy" decoding="async" alt="俯视视角下正在书写夜记的女孩">
+      <div class="auth-wash"></div>
+      <div class="guide-copy"><h1 id="guideRestTitle">把今天，留在今晚</h1><p>先写下三件值得感恩的小事，让思绪有一个温柔的落点。</p></div>
+      <div class="guide-progress" role="progressbar" aria-label="引导进度" aria-valuemin="1" aria-valuemax="3" aria-valuenow="1"><span class="active"></span><span></span><span></span></div>
+      <button class="auth-back" data-next="welcome">返回</button>
+      <div class="auth-bottom"><button class="primary" data-next="guide-light">继续</button><button class="guide-skip" data-next="story">跳过引导</button></div>
+    </section>
+
+    <section class="screen auth-screen guide-screen" data-screen="guide-light" aria-labelledby="guideLightTitle">
+      <img class="auth-bg" src="image/zhusheng-story-sequence/03-light-candle.png" width="1024" height="1536" loading="lazy" decoding="async" alt="月色窗边正在点亮蜡烛的女孩">
+      <div class="auth-wash"></div>
+      <div class="guide-copy"><h1 id="guideLightTitle">让光线慢慢安静</h1><p>开始仪式后，火焰会渐渐变小。你只需要把手机放远一点。</p></div>
+      <div class="guide-progress" role="progressbar" aria-label="引导进度" aria-valuemin="1" aria-valuemax="3" aria-valuenow="2"><span class="active"></span><span class="active"></span><span></span></div>
+      <button class="auth-back" data-next="guide-rest">返回</button>
+      <div class="auth-bottom"><button class="primary" data-next="guide-gift">继续</button><button class="guide-skip" data-next="story">跳过引导</button></div>
+    </section>
+
+    <section class="screen auth-screen guide-screen" data-screen="guide-gift" aria-labelledby="guideGiftTitle">
+      <img class="auth-bg" src="image/zhusheng-story-sequence/05-morning-art-card.png" width="1024" height="1536" loading="lazy" decoding="async" alt="清晨拆开莫奈艺术收藏卡的女孩">
+      <div class="auth-wash"></div>
+      <div class="guide-copy"><h1 id="guideGiftTitle">明天，再打开礼物</h1><p>按计划熄灯后，次日收藏一幅莫奈作品。睡前不浏览，醒来再欣赏。</p></div>
+      <div class="guide-progress" role="progressbar" aria-label="引导进度" aria-valuemin="1" aria-valuemax="3" aria-valuenow="3"><span class="active"></span><span class="active"></span><span class="active"></span></div>
+      <button class="auth-back" data-next="guide-light">返回</button>
+      <div class="auth-bottom"><button class="primary" data-next="story">观看烛生序章</button></div>
+    </section>
+
+    <section id="storyScreen" class="screen story-screen" data-screen="story" aria-labelledby="storyTitle">
+      <video id="storyVideo" class="story-video" preload="metadata" playsinline muted poster="image/zhusheng-story-sequence/01-enter-bedroom.png" aria-label="烛生睡前故事序章">
+        <source src="image/zhusheng-sleep-ui/zhusheng-prologue.mp4" type="video/mp4">
+      </video>
+      <img class="story-poster" src="image/zhusheng-story-sequence/01-enter-bedroom.png" width="1024" height="1536" alt="推门进入月色卧室的绘本场景">
+      <div class="story-scrim"></div>
+      <div class="story-top"><strong>烛生序章</strong><button id="skipStory" class="story-skip">跳过</button></div>
+      <div class="story-footer"><h1 id="storyTitle">从门口走进今晚</h1><p id="storyStatus">让这段故事，带你慢慢安静下来。</p><div class="story-controls"><button id="storyContinue" class="story-continue">播放序章</button></div></div>
+      <div class="story-progress" aria-hidden="true"><span id="storyProgress"></span></div>
+    </section>
+
+    <section class="screen scene" data-screen="home" aria-labelledby="homeTitle">
+      <img class="scene-bg" src="./image/zhusheng-sleep-ui/home-room.jpg" width="430" height="844" fetchpriority="high" alt="月色卧室与床头蜡烛">
+      <div class="scene-overlay home"></div>
+      <div class="home-brand">烛生</div>
+      <div class="home-copy"><h1 id="homeTitle">今晚，几点睡？</h1><p>给今天写下一个温柔的句号。</p></div>
+      <div class="time-card">
+        <label for="bedtime">计划入睡</label>
+        <div class="bedtime"><input id="bedtime" type="time" value="23:30" aria-label="计划入睡时间"></div>
+        <div class="time-divider"></div>
+        <div class="time-meta"><span>起床&nbsp; <b id="wakeLabel">07:30</b></span><span>睡眠&nbsp; <b id="durationLabel">8 小时</b></span></div>
+        <div class="distance"><span id="distanceLabel">距离入睡</span><strong id="homeCountdown">01 : 12 : 18</strong></div>
+      </div>
+      <div id="resumeNote" class="resume-note hidden"><span><strong>上一次仪式还没有结束</strong><small>可以从离开的地方继续</small></span><button id="resumeRitual">继续</button></div>
+      <button class="primary light home-start" data-next="resistance">开始睡前仪式</button>
+    </section>
+
+    <section class="screen paper-screen" data-screen="resistance" aria-labelledby="resistanceTitle">
+      <div class="ritual-head"><span class="progress">睡前仪式 · 1 / 4</span><h1 id="resistanceTitle">什么让你还不想睡？</h1><p>不用立刻解决，只选一个最接近的状态。</p></div>
+      <div class="reason-list" role="radiogroup" aria-label="晚间状态">
+        <button class="reason-card selected" role="radio" aria-checked="true" data-reason="我还在刷手机" data-reply="先不要求睡着，只把手机放远一点。"><strong>我还在刷手机</strong><small>先把手机放远一点</small></button>
+        <button class="reason-card" role="radio" aria-checked="false" data-reason="我还在工作" data-reply="先把今天停在这里，明天再继续。"><strong>我还在工作</strong><small>为今天画一个句号</small></button>
+        <button class="reason-card" role="radio" aria-checked="false" data-reason="我还不困" data-reply="不用强迫睡着，只让身体慢下来。"><strong>我还不困</strong><small>先让身体慢下来</small></button>
+        <button class="reason-card" role="radio" aria-checked="false" data-reason="我舍不得结束今天" data-reply="今天没有消失，它只是可以先被放下。"><strong>我舍不得结束今天</strong><small>留一句话给明天的自己</small></button>
+      </div>
+      <div id="gentleReply" class="gentle-reply">“先不要求睡着，只把手机放远一点。”</div>
+      <div class="flow-actions"><button class="primary" data-next="gratitude">继续</button><button class="text-button" data-next="plan">今晚跳过</button></div>
+    </section>
+
+    <section class="screen paper-screen" data-screen="gratitude" aria-labelledby="gratitudeTitle">
+      <div class="ritual-head"><span class="progress">睡前仪式 · 2 / 4</span><h1 id="gratitudeTitle">今天，最想感谢什么？</h1><p>三件小事就好。文字只保存在你的设备中。</p></div>
+      <div class="writing-sheet" aria-label="今晚感恩">
+        <label class="writing-row"><b>01</b><input class="gratitude-input" placeholder="一件值得感谢的小事" aria-label="第一件感恩的事"></label>
+        <label class="writing-row"><b>02</b><input class="gratitude-input" placeholder="一件让你微笑的小事" aria-label="第二件感恩的事"></label>
+        <label class="writing-row"><b>03</b><input class="gratitude-input" placeholder="一个被照顾的瞬间" aria-label="第三件感恩的事"></label>
+      </div>
+      <div class="privacy-note">☾&nbsp;&nbsp;默认仅本地保存，不上传云端</div>
+      <div class="write-count">已写下 <span id="gratitudeCount">1</span> / 3</div>
+      <div class="gratitude-actions"><button class="primary" data-next="plan">写好，继续</button><button class="text-button" data-next="plan">暂时跳过</button></div>
+    </section>
+
+    <section class="screen paper-screen" data-screen="plan" aria-labelledby="planTitle">
+      <div class="ritual-head"><span class="progress">睡前仪式 · 3 / 4</span><h1 id="planTitle">明天，只做哪三件事？</h1><p>把未完成的事放在这里，今晚不再反复想。</p></div>
+      <div class="plan-sheet" aria-label="明日计划">
+        <label class="plan-row"><b>01</b><input class="plan-input" placeholder="明天最重要的一件事" aria-label="明日第一件事"><img src="image/zhusheng-sleep-ui/twinkle.svg" alt=""></label>
+        <label class="plan-row"><b>02</b><input class="plan-input" placeholder="一件照顾自己的小事" aria-label="明日第二件事"><img src="image/zhusheng-sleep-ui/twinkle.svg" alt=""></label>
+        <label class="plan-row"><b>03</b><input class="plan-input" placeholder="第三件事" aria-label="明日第三件事"><img src="image/zhusheng-sleep-ui/twinkle.svg" alt=""></label>
+      </div>
+      <div class="closure-note"><strong>把今天留在今天</strong><p>未完成，不代表失败；只是明天再继续。</p></div>
+      <div class="flow-actions"><button class="primary" data-next="prep">准备熄灯</button><button class="text-button" data-next="gratitude">返回修改</button></div>
+    </section>
+
+    <section class="screen scene" data-screen="prep" aria-labelledby="prepTitle">
+      <img class="scene-bg" src="./image/zhusheng-sleep-ui/prep-room.jpg" width="430" height="844" loading="lazy" decoding="async" alt="暖色月夜卧室与稳定燃烧的蜡烛">
+      <div class="scene-overlay prep"></div><img class="candle-light" src="image/zhusheng-sleep-ui/prep-glow.svg" alt=""><img class="candle-core" src="image/zhusheng-sleep-ui/prep-core.svg" alt="">
+      <div class="scene-center"><span class="scene-ribbon">睡前模式</span><p class="label">距离入睡还有</p><p class="scene-time" id="prepCountdown">00 : 49 : 32</p><h1 id="prepTitle" class="scene-message">把手机放远一点，<br>让火焰陪你慢下来。</h1></div>
+      <p class="flame-status">火焰稳定燃烧</p><button class="primary light scene-action" data-next="quiet">我已放下手机</button>
+    </section>
+
+    <section class="screen scene" data-screen="quiet" aria-labelledby="quietTitle">
+      <img class="scene-bg" src="./image/zhusheng-sleep-ui/quiet-room.jpg" width="430" height="844" loading="lazy" decoding="async" alt="逐渐变暗的卧室与微小火焰">
+      <div class="scene-overlay quiet"></div><img class="candle-light quiet-light" src="image/zhusheng-sleep-ui/quiet-glow.svg" alt=""><img class="candle-core quiet-core" src="image/zhusheng-sleep-ui/quiet-core.svg" alt="">
+      <div class="quiet-copy"><p>距离入睡还有</p><strong id="quietCountdown">00 : 08 : 12</strong><h2 id="quietTitle">现在，不必再做什么。</h2></div>
+      <p class="flame-status">火焰正在慢慢安静</p><button id="quietContinue" class="quiet-state" data-next="goodnight">现在熄灯</button><p id="quietHint" class="quiet-hint">到点后将自动进入晚安</p>
+    </section>
+
+    <section class="screen scene" data-screen="goodnight" aria-labelledby="goodnightTitle">
+      <img class="scene-bg" src="./image/zhusheng-sleep-ui/goodnight-room.jpg" width="430" height="844" loading="lazy" decoding="async" alt="熄灯后的月色卧室">
+      <div class="scene-overlay goodnight"></div><div class="goodnight-copy"><h1 id="goodnightTitle">晚安</h1><p>今天已经结束了。</p></div>
+      <img class="breath" src="image/zhusheng-sleep-ui/breath-glow.svg" alt=""><button id="finishNight" class="breath-prompt" data-next="home">完成，明天查看收藏</button>
+    </section>
+
+    <section class="screen scene" data-screen="reward" aria-labelledby="rewardTitle">
+      <img class="scene-bg" src="./image/zhusheng-sleep-ui/dawn-room.jpg" width="430" height="844" loading="lazy" decoding="async" alt="清晨阳光照进卧室">
+      <div class="reward-copy"><h1 id="rewardTitle">次日收藏</h1><p>昨夜按时熄灯，收到一份安静的礼物。</p></div>
+      <article class="reward-sheet"><span class="sample-label">次日礼物</span><div class="reward-art"><span class="reward-image-frame"><img id="rewardImage" class="stateful-image" src="image/zhusheng-sleep-ui/monet-thumb-optimized.jpg" width="420" height="315" loading="lazy" decoding="async" alt="莫奈《睡莲》"><span class="image-error-state" role="status">艺术图片暂时没有加载出来，请稍后再试。</span></span><div><h2 id="rewardArtTitle">《睡莲》</h2><p id="rewardArtMeta">克劳德·莫奈<br>约 1916–1919</p></div></div><div class="reward-note"><strong id="rewardSummary">昨夜按时熄灯</strong><p id="rewardDetail">这份礼物已经收入你的收藏。</p></div><button class="primary" data-next="collection">查看我的夜晚收藏</button></article>
+    </section>
+
+    <section class="screen paper-screen record-screen" data-screen="journal" aria-labelledby="journalTitle">
+      <div class="app-head"><h1 id="journalTitle" class="screen-title">夜记</h1><p class="screen-lead">不是数据报表，只记录你如何慢慢提前结束一天。</p></div>
+      <div id="journalEmpty" class="empty-state hidden"><span class="moon-mark" aria-hidden="true">月</span><h2>第一篇夜记还在等你</h2><p>完成一次睡前仪式后，这里会出现你的熄灯时间和夜晚记录。</p><button class="primary" data-next="home">开始今晚的仪式</button></div>
+      <div id="nightList" class="night-list" data-record-content><h2>夜晚明细</h2></div>
+    </section>
+
+    <section class="screen paper-screen record-screen" data-screen="journal-detail" aria-labelledby="detailTitle">
+      <div class="detail-head"><button class="back" data-next="journal" aria-label="返回夜记">‹</button><h1 id="detailTitle">8 月 22 日 · 周五</h1></div>
+      <article class="comparison"><small>计划入睡 / 实际熄灯</small><div class="comparison-times"><span>23:30</span><span>23:39</span></div><div class="comparison-note">比昨天早睡了 18 分钟</div></article>
+      <div class="detail-body"><h2>今晚感谢</h2><div id="detailGratitudes" class="detail-items"></div><div class="detail-separator"></div><h2>留给明天</h2><div id="detailPlans" class="detail-items"></div><button class="reward-link" data-next="art-detail"><img src="image/zhusheng-sleep-ui/monet-thumb-optimized.jpg" width="420" height="315" loading="lazy" decoding="async" alt="莫奈睡莲缩略图"><span><small>昨夜的艺术奖励</small><strong>莫奈《睡莲》</strong></span><span>›</span></button></div>
+      <button class="clear-data" data-toast="演示模式不会删除记录">删除这条夜记</button>
+    </section>
+
+    <section class="screen paper-screen record-screen" data-screen="collection" aria-labelledby="collectionTitle">
+      <div class="app-head"><h1 id="collectionTitle" class="screen-title">夜晚收藏</h1><p class="screen-lead">每一个早点关灯的夜晚，留下一张安静的艺术卡。</p><p id="collectionCount" class="screen-lead" style="margin-top:14px">累计 0 张 · 0 幅作品</p></div>
+      <div id="collectionEmpty" class="empty-state hidden"><span class="moon-mark" aria-hidden="true">画</span><h2>第一张夜晚卡还没有出现</h2><p>按计划完成一次熄灯仪式，明天会收到一幅安静的莫奈作品。</p><button class="primary" data-next="home">开始今晚的仪式</button></div>
+      <div id="collectionGrid" data-record-content></div>
+      <div class="next-reward" data-record-content>今晚按时熄灯后<strong>明天可能收到一张新的艺术卡</strong></div>
+    </section>
+
+    <section class="screen paper-screen record-screen" data-screen="art-detail" aria-labelledby="artTitle">
+      <div class="detail-head"><button class="back" data-next="collection" aria-label="返回收藏">‹</button><button class="share-action" data-toast="分享卡片将在正式版开放">分享</button></div>
+      <div class="art-image-frame"><img class="art-image stateful-image" src="image/zhusheng-sleep-ui/monet-water-lilies-optimized.jpg" width="1080" height="810" loading="lazy" decoding="async" alt="克劳德·莫奈《睡莲》"><span class="image-error-state" role="status">艺术图片暂时没有加载出来，请稍后再试。</span></div>
+      <div class="art-copy"><h1 id="artTitle">《睡莲》</h1><p>克劳德·莫奈 · 约 1916-1919</p><div class="story-blank"><strong>作品故事</strong><small>此处预留 1000 字以内的艺术介绍</small></div><p class="art-collected-date" data-record-date>收藏于 8 月 22 日的夜晚</p></div>
+    </section>
+
+    <section class="screen paper-screen record-screen" data-screen="settings" aria-labelledby="settingsTitle">
+      <div class="app-head"><h1 id="settingsTitle" class="screen-title">设置</h1><p class="screen-lead">把提醒留得克制，把隐私交还给你。</p></div>
+      <div class="settings-list"><div class="setting-row"><strong>默认就寝时间</strong><small>每天可以单独调整</small><button class="setting-action" data-next="home">23:30</button></div><div class="setting-row"><strong>默认起床时间</strong><small>用于估算睡眠时长</small><button class="setting-action" data-toast="起床时间已设为 07:30">07:30</button></div><div class="setting-row"><strong>动态效果</strong><small id="motionDescription">减少动态效果：关闭</small><button id="motionToggle" class="setting-action">设置</button></div></div>
+      <div class="privacy"><h2>隐私与数据</h2><article class="privacy-card"><strong>你的夜记只保存在本设备</strong><p>匿名事件不包含感恩或计划正文。备份文件可能含有私人内容，请妥善保存。</p><button id="openLegal" class="link-button">查看用户协议与隐私政策&nbsp; ›</button></article></div>
+      <div class="offline-tools"><button id="importConfig" class="setting-tool">导入运营配置</button><input id="importConfigInput" class="sr-only" type="file" accept="application/json,.json"><button id="exportBackup" class="setting-tool">导出本地备份</button><button id="importBackup" class="setting-tool">导入本地备份</button><input id="importBackupInput" class="sr-only" type="file" accept="application/json,.json"></div>
+      <button id="clearData" class="clear-data">清除本地数据</button>
+    </section>
+
+    <nav id="bottomNav" class="bottom-nav" aria-label="主导航">
+      <button data-nav="home"><img alt="" src="image/zhusheng-sleep-ui/nav-home-on.svg"><span>今晚</span></button>
+      <button data-nav="journal"><img alt="" src="image/zhusheng-sleep-ui/nav-journal-off-c.svg"><span>夜记</span></button>
+      <button data-nav="collection"><img alt="" src="image/zhusheng-sleep-ui/nav-collection-off.svg"><span>收藏</span></button>
+      <button data-nav="settings"><img alt="" src="image/zhusheng-sleep-ui/nav-settings-off.svg"><span>设置</span></button>
+    </nav>
+    <div id="toast" class="toast" role="status"></div>
+  </main>
+
+  <div id="legalDialog" class="legal-overlay" hidden><section class="legal-dialog" role="dialog" aria-modal="true" aria-labelledby="legalTitle"><div class="legal-head"><h2 id="legalTitle">用户协议与隐私政策</h2><button id="closeLegal" aria-label="关闭">×</button></div><div class="legal-copy"><h3>本地私人内容</h3><p>感恩、明日计划、夜记正文和本地备份不会由此离线原型上传。</p><h3>匿名体验数据</h3><p>正式联网版本可能记录仪式完成、是否按时和奖励解锁等匿名事件，不包含正文、昵称或头像。继续使用表示你同意当前版本的用户协议与隐私政策。</p></div></section></div>
+
+  <script src="./zhusheng-core.js"></script>
+  <script src="./zhusheng-app.js"></script>
+  <script>
+    (() => {
+      const screens = [...document.querySelectorAll('.screen')];
+      const navigate = (name) => {
+        const target = screens.find(screen => screen.dataset.screen === name) || screens.find(screen => screen.dataset.screen === 'welcome');
+        if (!target) return;
+        screens.forEach(screen => { const active = screen === target; screen.classList.toggle('active', active); screen.setAttribute('aria-hidden', String(!active)); });
+        document.querySelector('#app')?.setAttribute('data-screen', target.dataset.screen);
+      };
+      document.querySelectorAll('[data-next]').forEach(button => button.addEventListener('click', () => navigate(button.dataset.next)));
+      document.querySelectorAll('[data-nav]').forEach(button => button.addEventListener('click', () => navigate(button.dataset.nav)));
+      document.querySelectorAll('img').forEach(image => image.addEventListener('error', () => { image.setAttribute('aria-hidden', 'true'); image.alt = ''; image.classList.add('asset-error'); }));
+    })();
+  </script>
+</body>
+</html>

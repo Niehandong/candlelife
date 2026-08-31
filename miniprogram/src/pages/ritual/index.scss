@@ -1,0 +1,22 @@
+.ritual {
+  &__title { display: block; font-size: 38px; margin-bottom: 56px; }
+  &__options { display: flex; flex-direction: column; gap: 20px; }
+  &__option {
+    padding: 28px 32px; border-radius: 20px; font-size: 30px;
+    border: 1px solid rgba(243, 235, 241, 0.16);
+    &.is-on { border-color: var(--purple-dark); color: var(--purple-dark); }
+  }
+  &__inputs { display: flex; flex-direction: column; gap: 24px; }
+  &__input {
+    padding: 26px 0; font-size: 30px; color: var(--night-ink);
+    border-bottom: 1px solid rgba(243, 235, 241, 0.16);
+  }
+  &__body { display: block; font-size: 30px; line-height: 1.9; color: var(--night-muted); }
+  &__actions { margin-top: 96px; display: flex; align-items: center; gap: 32px; }
+  &__back { font-size: 28px; color: var(--night-muted); }
+  &__next {
+    flex: 1; background: var(--purple-dark); color: var(--white);
+    border-radius: 999px; font-size: 30px;
+    &[disabled] { opacity: 0.4; }
+  }
+}

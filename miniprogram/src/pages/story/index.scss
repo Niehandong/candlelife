@@ -1,0 +1,11 @@
+.story {
+  position: relative;
+  .screen__inner { padding: 0; }
+  &__video { width: 100%; height: 100vh; }
+  &__skip {
+    position: absolute; right: 40px; top: calc(env(safe-area-inset-top) + 40px);
+    font-size: 26px; color: rgba(243, 235, 241, 0.85);
+    padding: 12px 28px; border-radius: 999px;
+    background: var(--scrim);
+  }
+}
