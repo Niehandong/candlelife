@@ -106,12 +106,32 @@ cd backend
 ```
 
 > **虚拟环境在仓库根的 `.venv`，不在 `backend/` 下。** 所以从 `backend/` 里调用
-> 要写 `../.venv/bin/...`。依赖清单是 `backend/requirements.txt`（不再是
-> `pyproject.toml`），pytest 配置在 `backend/pytest.ini`。
+> 要写 `../.venv/bin/...`。pytest 配置在 `tests/conftest.py` 的 `pytest_configure()`
+> 里（没有 `pytest.ini`，见「清理与部署」一节）。
 >
-> 一律用 `python -m <模块>` 而不是 `.venv/bin/<命令>`：venv 搬过位置后，
-> `bin/` 下那些可执行文件的 shebang 还指着旧路径，`../.venv/bin/alembic`
-> 会报 `cannot execute: required file not found`。`python -m alembic` 不受影响。
+> **两份依赖清单，分工不同**：
+>
+> | | 是什么 | 谁读 |
+> |---|---|---|
+> | `backend/requirements.txt` | 意图清单，`>=` 范围 | 人 |
+> | `backend/requirements.lock.txt` | 事实清单，`==` 钉死 | 机器（重建环境照它装） |
+>
+> 改依赖之后必须重新冻结，否则 `tests/test_env_sanity.py` 会红：
+> `cd backend && ../.venv/bin/python -m pip freeze --exclude-editable > requirements.lock.txt`
+
+### 命令必须在 `backend/` 目录下跑
+
+`import app` 靠的是「`backend/` 在 `sys.path` 上」，四条入口各自的理由不同
+（pytest 靠 `tests/__init__.py` 的 prepend 导入、`python -m` 与 `main.py` 靠 cwd
+与脚本目录）。**在仓库根跑 `pytest backend/tests` 会 `ModuleNotFoundError`。**
+
+> 这条约定曾长期形同虚设：`pyproject.toml` 时代 `pip install -e .` 往
+> site-packages 里装了一个 editable 钩子（`__editable__.zhusheng_backend-*.pth`
+> 加一个 finder），把 `import app` 硬绑到绝对路径 —— 在任何目录跑都能导入，
+> 不是因为路径对，是因为有个隐形钩子在兜底。`pyproject.toml` 删掉后钩子还活着。
+> 现已卸除，并由 `tests/test_env_sanity.py` 的 6 条护栏守着：解释器是不是仓库根的
+> `.venv`、`sys.meta_path` 有没有 editable finder、site-packages 有没有残骸、
+> `app` 解析到哪、`bin/` 的 shebang 对不对、lock 与实际装的一致不一致。
 
 **不要并发跑两个 pytest 会话。** 它们共用 `zhusheng_test` schema，fixture 会
 `drop_all` 重建，两个会话互相拆台，结果不可信（踩过）。
@@ -153,9 +173,9 @@ npm run dev:weapp      # 监听模式
 ### 首次上手
 
 ```bash
-# 依赖装在仓库根的 .venv，清单是 backend/requirements.txt
+# 依赖装在仓库根的 .venv。用 lock 文件装，得到与开发机一致的版本
 python3 -m venv .venv
-.venv/bin/python -m pip install -r backend/requirements.txt
+.venv/bin/python -m pip install -r backend/requirements.lock.txt
 
 cd backend && ../.venv/bin/python -m alembic upgrade head
 cd backend && ../.venv/bin/python -m scripts.seed_art
@@ -214,11 +234,11 @@ cd admin   && ./dev.sh clean all # 连 dist/ 一起清
 
 ### 部署时不带上测试，用排除而不是删除
 
-线上机器确实不需要 `tests/`、`pytest.ini`。做法是**打包时排除**，仓库里留着：
+线上机器确实不需要 `tests/`。做法是**打包时排除**，仓库里留着：
 
 ```bash
 # 用 rsync 部署时
-rsync -a --exclude='tests/' --exclude='pytest.ini' --exclude='__pycache__/' \
+rsync -a --exclude='tests/' --exclude='__pycache__/' \
       --exclude='.pytest_cache/' --exclude='.venv/' --exclude='.env' --exclude='.run/' \
       backend/ 目标机:/opt/zhusheng/backend/
 
@@ -292,6 +312,23 @@ api/v1  →  services  →  repositories  →  models
 - `services/` 是事务边界，编排 domain 与 repository
 - `api/v1/` 只做出入参转换与依赖注入
 
+**「只做出入参转换」这条曾长期名不副实**：`events.py` 直接 `session.add_all()`
+加 `commit()`（既没有 service 也没有 repository）、`me.py` 直接调微信内容安全
+接口、`nights.py::edit_night_text` 把锁定判定、加密、事务全写在路由里还
+`return await get_night(...)` 直接调另一个路由函数、`art.py::collection`
+循环查库（N+1）。现已归位到 `services/{night,user,event,collection}.py`，
+路由函数统一成「取参 → 调 service → 拼 response schema」三行。
+
+改这一层时的判断标准：**路由函数里出现 `commit()`、外部服务调用、
+或任何 `if` 判定，就说明有东西该搬进 service。**
+
+#### 当前时刻只从 `app/core/clock.py` 取
+
+`domain/` 是纯函数层，硬约束之一是不得调用 `datetime.now()`。那么「调用方从
+哪里取」就要统一 —— 原先 `nights.py` 与 `rewards.py` 各定义一份 `_now()`，
+测试冻结时间要 patch 两处，漏一处就得到「一半冻住一半没冻」的诡异状态。
+现在只有 `clock.now()` 一个 patch 点。
+
 ### 不可动摇的正确性保证
 
 这些用数据库机制而非应用代码实现，改动时不要绕过：
@@ -306,6 +343,63 @@ api/v1  →  services  →  repositories  →  models
 
 **Redis 是优化，不是正确性依赖。** Redis 整体不可用时服务应变慢但绝不发错奖励或
 写重记录。任何取用 Redis 的地方都要能接受 `None`，且降级路径要有测试。
+
+### 响应契约：`{code, msg, data}`，`/api` 下 HTTP 状态一律 200
+
+所有 `/api/**` 的响应都是同一个形状，成功失败无区别：
+
+```jsonc
+{"code": 200,   "msg": "success",              "data": {…}}    // 成功
+{"code": 40101, "msg": "请先登录",              "data": null}   // 失败
+{"code": 42200, "msg": "请求参数不合法",         "data": {"fields": ["code"]}}
+```
+
+**判断成败只看 `code`，不看 HTTP 状态** —— `/api` 下的 HTTP 状态恒为 200，
+包括路径写错（`40400`）与方法用错（`40500`）。一个响应只该有一层响应码。
+
+| 路径 | 状态码 |
+|---|---|
+| `/api/**` | **一律 200** |
+| `/static/**` | 真实状态。文件服务不是业务接口，图片不存在就该 404，`<img>` 的 onerror 靠它 |
+| `/docs`、`/redoc`、`/openapi.json` | 真实状态，否则 Swagger UI 打不开 |
+| `/health` | 200 |
+
+**代价与对冲**：Nginx access log 里全是 200，按状态码统计错误率的手段失效。
+所以失败响应带 `X-Biz-Code: 40101` 头，网关侧用 `$upstream_http_x_biz_code`
+继续分类，不必解析 body。上线配 Nginx 时**别漏了这一行**。
+
+#### 抛错一律用 `ApiError`，不写状态码
+
+```python
+raise ApiError("ART_IN_USE")                      # 状态由码推导，写不岔
+raise ApiError("CONFIG_INVALID", {"fields": [...]})
+```
+
+编号规则仍是「HTTP 状态码 + 两位序号」，但它不再承载 HTTP 语义，
+而是一套读得懂的**命名空间**：`40902` 一眼可知「冲突类的第 2 个」。
+`ApiError` 内部按 `code // 100` 推导真实状态，供非 API 路径与日志使用。
+
+新增错误码要动两处 —— `app/core/codes.py` 的 `CODE_NUMBERS` 加数字、
+`app/core/errors.py` 的 `ERROR_MESSAGES` 加中文。缺一
+`tests/test_errors.py::test_code_numbers_and_messages_stay_in_sync` 会红。
+
+> **异常处理器注册在 `starlette.exceptions.HTTPException` 上，不是 fastapi 那个。**
+> 路由匹配不上时抛的是 starlette 的基类，注册在子类上捕不到 ——
+> 「`/api` 下路径写错也返回 200」会静默落空，而其余测试全都打得中路由，
+> 没有一条会发现。`tests/test_errors.py::test_unmatched_api_path_is_200_with_not_found_code`
+> 专守这条。
+
+#### 没有空体响应
+
+原先返回 204/202 的四个接口（注销账号、事件上报、改密码、删作品）
+现在一律 200 + `data: null`。前端不必再处理第二种形状。
+
+#### 两个前端的 `codes.ts` 手抄了后端的数字
+
+`admin/src/api/codes.ts` 与 `miniprogram/src/api/codes.ts` 只登记**页面真正会
+分支判断**的那些码，其余走「显示 `msg`」的通用路径 —— 加得越少，要同步的越少。
+两端都提供 `SESSION_DEAD_CODES`：**小程序的 token 自动刷新、后台的自动登出，
+判断依据都是它，不是 HTTP 401**（那个条件现在永远不成立）。
 
 ### 历史固化
 
@@ -324,8 +418,61 @@ api/v1  →  services  →  repositories  →  models
 
 ### 微信 mock 模式
 
-尚未获取 AppID，`WX_MOCK_LOGIN=true` 时 `code2Session` 与内容安全检测走本地桩。
-`ENV=production` 且该开关为 true 时**进程拒绝启动**（`app/core/config.py`）。
+**已切到真微信**（2026-09-01）。`WX_MOCK_LOGIN=false`，`WX_APPID` / `WX_SECRET`
+已配在 `backend/.env`，`project.config.json` 的 appid 已从 `touristappid` 换成真 AppID。
+
+小程序端一直是真的：`Taro.login()` 拿真 code，POST 给 `/api/v1/auth/wx-login`，
+全仓没有任何 mock 数据。mock 只存在（过）于后端。
+
+三处必须同时就绪，少一处登录就是全线失败：
+
+| 配置 | 值 | 少了会怎样 |
+|---|---|---|
+| `backend/.env` 的 `WX_APPID` / `WX_SECRET` | 微信公众平台「开发管理 → 开发设置」 | 微信不返回 openid，全部 `40108` |
+| `backend/.env` 的 `WX_MOCK_LOGIN` | `false` | 仍走本地桩，真 code 不会被校验 |
+| `miniprogram/project.config.json` 的 `appid` | 真 AppID（不能是 `touristappid`） | 游客模式的 code 没绑 AppID，微信换不出 openid |
+
+> **AppSecret 不要贴进对话或提交进仓库。** 只放 `backend/.env`（已 gitignore）。
+> AppID 不是机密，随 `project.config.json` 入库无妨。
+
+`WX_MOCK_LOGIN=true` 时后端的 `code2Session` 返回 `mock_openid_{code}` 而不调微信，
+`check_text` 恒返回 True。`ENV=production` 且该开关为 true 时**进程拒绝启动**
+（`app/core/config.py`），production 下 `WX_APPID` / `WX_SECRET` 为空也拒绝启动。
+
+#### 测试永远走桩，与 `.env` 无关
+
+`tests/conftest.py` 在 import 阶段设 `os.environ["WX_MOCK_LOGIN"] = "true"`
+（必须在任何 `import app.*` 之前 —— `get_settings()` 带 `@lru_cache`，
+第一次调用就把值定死了）。
+
+**不这么做的话**：关掉 mock 之后跑一次全量测试 = 拿 `test-user` 这种假 code
+向微信发几十次真实请求、全部失败、还白白消耗每日配额。
+`tests/test_startup.py::test_test_suite_never_calls_real_wechat` 守着这几行不被删掉。
+
+#### 排错：换不到 token 时看 errcode
+
+后端日志会记下微信的 errcode（**不外泄给用户**，用户只看到中文）：
+
+| errcode | 含义 |
+|---|---|
+| 40029 | code 无效或已用过（一个 code 只能换一次） |
+| 40013 | AppID 不对 |
+| 40001 / 40125 | AppSecret 不对，或与 AppID 不配套 |
+| 40164 / 89503 | **调用方 IP 不在白名单** —— 公众平台「开发管理 → 开发设置 → IP 白名单」要加服务器公网出口 IP |
+
+最后一条上线时最容易踩：开发机能换到 token，部署到服务器就换不到，因为出口 IP 变了。
+
+#### `access_token` 必须缓存
+
+`cgi-bin/token` 有每日配额，且同一 AppID 全局只有一张 token。
+`services/wechat.py` 把它缓存在 Redis（TTL 6900 秒，比微信的 7200 提前 5 分钟）。
+**不要改回每次都取** —— 配额打光后 `check_text` 会一路返回 False，
+表现为「所有人都改不了昵称」，而日志里只有一句「内容安全检测失败」，
+很难往配额上想。`tests/test_wechat_client.py` 有一条断言「三次 check_text
+只向微信取一次 token」。
+
+Redis 不可用时降级为每次都取 —— 慢一点、费配额，但不影响功能
+（沿用「Redis 是优化不是正确性依赖」）。
 
 ## 管理后台（阶段二）
 
@@ -337,8 +484,9 @@ api/v1  →  services  →  repositories  →  models
 | 有效期 | access 2h / refresh 30d | **8h，无 refresh** |
 | 获取方式 | `wx.login` 静默 | 用户名 + 密码 |
 
-`decode_token(token, expect_kind=...)` 校验 kind，不匹配返回 401
-`TOKEN_KIND_MISMATCH`。用户 token 打管理接口打不通，反之亦然。
+`decode_token(token, expect_kind=...)` 校验 kind，不匹配抛
+`ApiError("TOKEN_KIND_MISMATCH")`，对外是 `40103`（HTTP 仍是 200，见「响应契约」）。
+用户 token 打管理接口打不通，反之亦然。
 
 后台不做 refresh：长效 refresh token 存在浏览器里，对一个能改全局配置的后台是
 不必要的攻击面。前端 token 存 `sessionStorage` 而非 `localStorage`。
@@ -421,6 +569,32 @@ Redis 挂掉时锁死登录等于让运维在最需要进后台时进不去）�
 两个前端零耦合）。代价是可能漂移，由上面第 5 条契约测试兜。
 后端改了字段名 → 契约测试红 → **改 `types.ts` 对齐后端**（后端是权威）。
 
+### 小程序端不藏配置兜底
+
+运营配置**一律以后端为准**，前端不保留本地默认值。原先 `store/runtime-config.ts`
+有一份 `DEFAULT_CONFIG` 在拿不到 `/api/v1/config` 时顶上，已按用户决定删除。
+
+> **删它的理由不是「它是假数据」，而是「它是沉默的旧数据」**：管理员在后台把
+> 容差从 30 改成 15，断网用户看到的仍是编译进包里的 30，界面上没有任何迹象
+> 表明他看到的是旧值。这比明确报错糟得多。
+>
+> `src/store/__tests__/no-local-config-fallback.test.ts` 防止它以别的名字长回来。
+
+**后端 `GET /api/v1/config` 的回落路径仍然保留**，两者不是一回事 ——
+后端回落是「库里没配过就用常量」，那是让小程序能启动；前端兜底是「拿不到后端
+就用旧值」，那是让用户看到过期的东西。
+
+拿不到配置时按页面区别对待：
+
+| 页面 | 用配置做什么 | 处理 |
+|---|---|---|
+| `ritual` | 感恩/计划条数、阻力选项 | `components/ConfigGate.tsx` 挡住，给重试按钮 |
+| `home` / `goodnight` / `reward` | 只有背景图 `assets.base_url` | 不设背景，页面照常 |
+| `story` | 开场视频 | 不挡 —— 它在 `ONBOARDING_ROUTES` 里，引导页必须断网可用 |
+
+`assetBase()` 拿不到时返回 `undefined` 而不是空字符串，这样 `<Screen background>`
+收到的是「不设背景」，而不是去请求一个 `/ui/home-room.jpg` 这样注定 404 的半截 URL。
+
 ## 领域术语
 
 见根目录 `CONTEXT.md`。「仪式夜」「资格窗口」「揭晓窗口」「连续按时」等术语在代码、
@@ -461,5 +635,7 @@ Wikimedia 的文件名，仓库里**没有下载脚本** —— 忽略它们等�
 - `.superpowers/` 是开发时的流程脚手架，已整体 gitignore，不进版本库。
   设计决策的「为什么」在 `docs/superpowers/` 与本文件里。
 - `prototype/` 只读。
-- 上线前必办：轮换数据库与 Redis 密码（曾在对话中明文出现）、删掉开发期的
+- 上线前必办：**Nginx 的 `log_format` 加 `$upstream_http_x_biz_code`**
+  （`/api` 全部返 200 之后，这是统计错误率的唯一途径，不配就等于监控看到「零错误」）、
+  轮换数据库与 Redis 密码（曾在对话中明文出现）、删掉开发期的
   `devadmin` 账号、备份 `FERNET_KEYS`、把后台限制在内网 / VPN / IP 白名单内。

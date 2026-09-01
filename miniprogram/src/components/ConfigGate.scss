@@ -1,0 +1,36 @@
+// 配置未就绪时的闸门。沿用夜屏配色 —— 用户多半是在睡前碰到它，
+// 不该突然被一块亮色刺眼。
+.config-gate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &__box {
+    padding: 48px 40px;
+    text-align: center;
+  }
+
+  &__title {
+    display: block;
+    font-family: "Noto Serif SC", serif;
+    font-size: 40px;
+    color: var(--night-ink);
+    margin-bottom: 24px;
+  }
+
+  &__hint {
+    display: block;
+    font-size: 26px;
+    line-height: 1.8;
+    color: var(--night-muted);
+    margin-bottom: 48px;
+  }
+
+  &__retry {
+    background: var(--purple-dark);
+    color: var(--night);
+    border-radius: 999px;
+    font-size: 28px;
+    padding: 0 64px;
+  }
+}

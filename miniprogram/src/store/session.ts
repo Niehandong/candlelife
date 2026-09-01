@@ -4,6 +4,7 @@ import type { ConfigResponse, MeResponse } from '@/api/types'
 import { flushEvents } from '@/utils/events'
 import { clearTokens, getAccessToken, setTokens } from './auth'
 import { saveConfig } from './runtime-config'
+import { isSessionDead } from '@/api/codes'
 
 const ONBOARDED = 'zhusheng-onboarded-v1'
 
@@ -27,7 +28,7 @@ async function bootstrapWithRelogin(): Promise<{ config: ConfigResponse; me: MeR
   } catch (error: any) {
     // 本地数据库重建、切换后端或 token 过期后，缓存中的旧 token 对新服务已无效。
     // 清掉后只重试一次，让 bootstrap 重新走 wx.login，避免每次启动都卡在旧登录态。
-    if (getAccessToken() && error?.status === 401) {
+    if (getAccessToken() && isSessionDead(error?.code)) {
       clearTokens()
       return bootstrap()
     }

@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { CODE_ADMIN_LOGIN_FAILED, CODE_TOO_MANY_ATTEMPTS } from '../../api/codes'
 
 import { ApiError, clearToken } from '../../api/client'
 import * as endpoints from '../../api/endpoints'
@@ -50,7 +51,7 @@ describe('登录页', () => {
 
   it('登录失败时显示后端返回的中文错误', async () => {
     vi.spyOn(endpoints, 'login').mockRejectedValue(
-      new ApiError(401, 'ADMIN_LOGIN_FAILED', '用户名或密码不正确'),
+      new ApiError(CODE_ADMIN_LOGIN_FAILED, '用户名或密码不正确'),
     )
     renderPage()
     await userEvent.type(await screen.findByLabelText('用户名'), 'alice')
@@ -61,7 +62,7 @@ describe('登录页', () => {
 
   it('限流时显示 429 的提示', async () => {
     vi.spyOn(endpoints, 'login').mockRejectedValue(
-      new ApiError(429, 'TOO_MANY_ATTEMPTS', '尝试次数过多，请一分钟后再试'),
+      new ApiError(CODE_TOO_MANY_ATTEMPTS, '尝试次数过多，请一分钟后再试'),
     )
     renderPage()
     await userEvent.type(await screen.findByLabelText('用户名'), 'alice')

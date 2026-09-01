@@ -2,10 +2,11 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.config import get_settings
+from app.core.errors import ApiError
 
 _ALG = "HS256"
 _bearer = HTTPBearer(auto_error=False)
@@ -36,9 +37,9 @@ def decode_token(token: str, expect_kind: str = "access") -> dict:
     try:
         payload = jwt.decode(token, get_settings().jwt_secret, algorithms=[_ALG])
     except jwt.PyJWTError as exc:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "TOKEN_INVALID") from exc
+        raise ApiError("TOKEN_INVALID") from exc
     if payload.get("kind") != expect_kind:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "TOKEN_KIND_MISMATCH")
+        raise ApiError("TOKEN_KIND_MISMATCH")
     return payload
 
 
@@ -46,7 +47,7 @@ async def current_user_id(
     cred: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ) -> uuid.UUID:
     if cred is None:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "TOKEN_MISSING")
+        raise ApiError("TOKEN_MISSING")
     return uuid.UUID(decode_token(cred.credentials)["sub"])
 
 
@@ -67,7 +68,7 @@ async def current_admin_claims(
     比只返回 id 多给出 iat —— 改密后要靠它判断这张 token 是不是改密之前签发的。
     """
     if cred is None:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "TOKEN_MISSING")
+        raise ApiError("TOKEN_MISSING")
     return decode_token(cred.credentials, expect_kind="admin")
 
 

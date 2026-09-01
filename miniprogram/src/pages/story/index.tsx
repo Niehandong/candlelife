@@ -2,14 +2,16 @@ import { CoverView, Video } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useEffect, useState } from 'react'
 import Screen from '@/components/Screen'
-import { DEFAULT_CONFIG, loadConfig } from '@/store/runtime-config'
+import { assetBase } from '@/store/runtime-config'
 import './index.scss'
 
 export default function Story() {
   const [base, setBase] = useState('')
 
   useEffect(() => {
-    setBase((loadConfig() ?? DEFAULT_CONFIG).assets.base_url)
+    // 引导页不依赖网络（见 store/session.ts 的 ONBOARDING_ROUTES）——
+    // 取不到就不渲染视频，「跳过」始终在，用户不会被卡住。
+    setBase(assetBase() ?? '')
   }, [])
 
   const enter = () => Taro.switchTab({ url: '/pages/home/index' })

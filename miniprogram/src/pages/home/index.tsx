@@ -7,14 +7,14 @@ import Countdown from '@/components/Countdown'
 import Screen from '@/components/Screen'
 import { calculateOnTimeStreak, currentRitualNight } from '@/domain/ritual'
 import { checkAndRoute } from '@/store/reveal'
-import { DEFAULT_CONFIG, loadConfig } from '@/store/runtime-config'
+import { assetBase } from '@/store/runtime-config'
 import './index.scss'
 
 export default function Home() {
   const [me, setMe] = useState<MeResponse | null>(null)
   const [streak, setStreak] = useState(0)
   const [failed, setFailed] = useState(false)
-  const config = loadConfig() ?? DEFAULT_CONFIG
+  const base = assetBase()
 
   const load = () => {
     setFailed(false)
@@ -54,7 +54,7 @@ export default function Home() {
   return (
     <Screen
       variant="night"
-      background={`${config.assets.base_url}/ui/home-room.jpg`}
+      background={base ? `${base}/ui/home-room.jpg` : undefined}
       reducedMotion={me.settings.reduced_motion}
       className="home"
     >

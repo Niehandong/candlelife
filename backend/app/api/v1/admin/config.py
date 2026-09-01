@@ -1,10 +1,11 @@
 import json
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.admin.auth import current_admin
 from app.core.db import get_session
+from app.core.errors import ApiError
 from app.repositories import admin as admin_repo
 from app.schemas.admin import (
     AdminConfigResponse, ConfigChangeItem, ConfigDiffResponse, ConfigFieldError,
@@ -65,7 +66,7 @@ async def write_config(payload: dict,
 
     normalized, errors = admin_config.validate(payload)
     if normalized is None:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "CONFIG_INVALID")
+        raise ApiError("CONFIG_INVALID")
     row = await admin_config.save(session, normalized, admin.username)
     await session.commit()
     return AdminConfigResponse(config=normalized, updated_by=row.updated_by,

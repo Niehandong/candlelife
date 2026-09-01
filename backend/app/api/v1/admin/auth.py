@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, Request, Response, status
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
@@ -37,7 +37,7 @@ async def me(admin=Depends(current_admin)):
     return AdminMeResponse(username=admin.username, last_login_at=admin.last_login_at)
 
 
-@router.post("/password", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/password")
 async def change_password(payload: AdminPasswordChangeRequest, request: Request,
                           admin=Depends(current_admin),
                           session: AsyncSession = Depends(get_session)):
@@ -51,4 +51,4 @@ async def change_password(payload: AdminPasswordChangeRequest, request: Request,
     await admin_auth.change_password(
         session, admin, payload.current_password, payload.new_password, client_ip)
     await session.commit()
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return None

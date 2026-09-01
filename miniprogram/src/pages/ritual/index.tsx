@@ -5,19 +5,33 @@ import type { ApiError } from '@/api/client'
 import { api } from '@/api/endpoints'
 import Screen from '@/components/Screen'
 import { clearDraft, loadDraft, saveDraft, type Draft, type RitualStep } from '@/store/draft'
-import { DEFAULT_CONFIG, loadConfig } from '@/store/runtime-config'
+import ConfigGate from '@/components/ConfigGate'
+import type { ConfigResponse } from '@/api/types'
 import { queueEvent } from '@/utils/events'
 import { toIsoWithOffset } from '@/utils/time'
 import { STEP_TITLE, canAdvance, nextStep, prevStep } from './steps'
 import './index.scss'
+import { CODE_NETWORK_UNAVAILABLE } from '@/api/codes'
 
 const BACKGROUND: Partial<Record<RitualStep, string>> = {
   prep: 'ui/prep-room.jpg',
   quiet: 'ui/quiet-room.jpg',
 }
 
+/**
+ * 仪式页是唯一【离不开运营配置】的页面：感恩/计划的条数、阻力选项都来自
+ * /api/v1/config。拿不到配置就渲染不出这一页 —— 会变成 0 个输入框、
+ * 没有阻力选项的空壳，比明确报错更糟。所以由 ConfigGate 挡住。
+ *
+ * 其余页面只用配置里的 assets.base_url 拼背景图，那是装饰性的，
+ * 缺了就不设背景，不必挡。
+ */
 export default function Ritual() {
-  const cfg = loadConfig() ?? DEFAULT_CONFIG
+  return <ConfigGate>{(cfg) => <RitualSteps cfg={cfg} />}</ConfigGate>
+}
+
+
+function RitualSteps({ cfg }: { cfg: ConfigResponse }) {
   const [draft, setDraft] = useState<Draft | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -67,7 +81,7 @@ export default function Ritual() {
       const err = e as ApiError
       // 离线完成不支持——如实告知，不假装成功、不做本地队列
       Taro.showToast({
-        title: err.code === 'NETWORK_UNAVAILABLE' ? '网络不可用，仪式未记录' : err.message,
+        title: err.code === CODE_NETWORK_UNAVAILABLE ? '网络不可用，仪式未记录' : err.message,
         icon: 'none',
         duration: 2500,
       })

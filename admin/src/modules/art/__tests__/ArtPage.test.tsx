@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { CODE_ART_IN_USE, CODE_NETWORK } from '../../../api/codes'
 
 import { ApiError } from '../../../api/client'
 import * as endpoints from '../../../api/endpoints'
@@ -125,7 +126,7 @@ describe('作品库', () => {
 
   it('后端返回 409 时把中文原因显示出来', async () => {
     vi.spyOn(endpoints, 'deleteArt').mockRejectedValue(
-      new ApiError(409, 'ART_IN_USE', '这幅作品已被收藏，只能下架或撤回，不能删除'))
+      new ApiError(CODE_ART_IN_USE, '这幅作品已被收藏，只能下架或撤回，不能删除'))
     renderPage()
     await userEvent.click(await screen.findByRole('button', { name: '删除' }))
     await userEvent.click(await screen.findByRole('button', { name: '确认删除' }))
@@ -140,7 +141,7 @@ describe('作品库', () => {
 
   it('加载失败时显示错误与重试', async () => {
     vi.spyOn(endpoints, 'fetchArt')
-      .mockRejectedValue(new ApiError(0, 'NETWORK_ERROR', '网络连接失败，请检查后端是否在运行'))
+      .mockRejectedValue(new ApiError(CODE_NETWORK, '网络连接失败，请检查后端是否在运行'))
     renderPage()
     expect(await screen.findByRole('alert')).toHaveTextContent('网络连接失败')
     expect(screen.getByRole('button', { name: '重试' })).toBeInTheDocument()

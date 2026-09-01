@@ -4,12 +4,12 @@ import { useEffect, useState } from 'react'
 import { api } from '@/api/endpoints'
 import type { RewardItem } from '@/api/types'
 import Screen from '@/components/Screen'
-import { DEFAULT_CONFIG, loadConfig } from '@/store/runtime-config'
+import { assetBase } from '@/store/runtime-config'
 import { queueEvent } from '@/utils/events'
 import './index.scss'
 
 export default function Reward() {
-  const cfg = loadConfig() ?? DEFAULT_CONFIG
+  const base = assetBase()
   const [rewards, setRewards] = useState<RewardItem[] | null>(null)
   const [i, setI] = useState(0)
 
@@ -48,7 +48,7 @@ export default function Reward() {
   return (
     <Screen
       variant="dawn"
-      background={`${cfg.assets.base_url}/ui/dawn-room.jpg`}
+      background={base ? `${base}/ui/dawn-room.jpg` : undefined}
       className="reward"
     >
       <Text className="reward__lede">昨夜按时熄灯，收到一份安静的礼物。</Text>

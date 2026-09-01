@@ -1,3 +1,4 @@
+import { CODE_ADMIN_LOGIN_FAILED } from '../../api/codes'
 /**
  * 登录成功后必须离开登录页。
  *
@@ -88,7 +89,7 @@ describe('登录后的跳转', () => {
   it('登录失败时留在登录页', async () => {
     const { ApiError } = await import('../../api/client')
     vi.spyOn(endpoints, 'login')
-      .mockRejectedValue(new ApiError(401, 'ADMIN_LOGIN_FAILED', '用户名或密码不正确'))
+      .mockRejectedValue(new ApiError(CODE_ADMIN_LOGIN_FAILED, '用户名或密码不正确'))
     renderApp()
     await submit()
     expect(await screen.findByRole('alert')).toHaveTextContent('用户名或密码不正确')

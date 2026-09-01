@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 let store: Record<string, any> = {}
+/** 模拟页面栈。空数组 = 冷启动。个别用例可以改它来模拟「已经在某一页上」。 */
+let currentPages: { route?: string }[] = []
 const loginCalls: string[] = []
 const reLaunchCalls: any[] = []
 const toastCalls: any[] = []
@@ -13,6 +15,9 @@ vi.mock('@tarojs/taro', () => ({
     removeStorageSync: (k: string) => { delete store[k] },
     reLaunch: (opt: any) => { reLaunchCalls.push(opt); return Promise.resolve() },
     showToast: (opt: any) => { toastCalls.push(opt) },
+    // session.ts 用它判断当前在哪一页，决定要不要 reLaunch 到欢迎页。
+    // 默认返回空数组 = 还没有任何页面栈（冷启动），routeAfterBootstrap 会照常路由。
+    getCurrentPages: () => currentPages,
   },
 }))
 

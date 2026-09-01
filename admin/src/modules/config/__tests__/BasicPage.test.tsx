@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { CODE_NETWORK } from '../../../api/codes'
 
 import { ApiError } from '../../../api/client'
 import * as endpoints from '../../../api/endpoints'
@@ -113,7 +114,7 @@ describe('基础设置页', () => {
 
   it('加载失败时显示错误与重试按钮', async () => {
     vi.spyOn(endpoints, 'fetchConfig')
-      .mockRejectedValue(new ApiError(0, 'NETWORK_ERROR', '网络连接失败，请检查后端是否在运行'))
+      .mockRejectedValue(new ApiError(CODE_NETWORK, '网络连接失败，请检查后端是否在运行'))
     renderPage()
     expect(await screen.findByRole('alert')).toHaveTextContent('网络连接失败')
     expect(screen.getByRole('button', { name: '重试' })).toBeInTheDocument()

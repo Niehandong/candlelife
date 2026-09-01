@@ -11,6 +11,20 @@ users 表。曾发生过一次事故：search_path 含 public 时，drop_all 顺
 """
 import os
 
+# ── 测试环境强制走微信桩，与 .env 的当前值解耦 ───────────────────
+#
+# 【为什么必须在这里、在任何 import app.* 之前设】
+# get_settings() 带 @lru_cache，第一次调用就把 .env 的值定死了。
+# 环境变量优先于 .env 文件，所以在这里设就能盖住它。
+#
+# 【为什么必须强制】线上要走真微信（WX_MOCK_LOGIN=false），而测试里
+# conftest 的 auth_client 用的是 "test-user" 这种假 code。不强制的话，
+# 关掉 mock 之后跑一次全量测试 = 向微信发几十次真实请求、用假 code、
+# 全部失败、还白白消耗每日配额。测试绝不该依赖外部服务。
+#
+# tests/test_startup.py 有一条断言守着这件事，防止有人把这几行删掉。
+os.environ["WX_MOCK_LOGIN"] = "true"
+
 import pytest_asyncio
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -42,6 +56,56 @@ def pytest_configure(config):
     # 用 pytest 自己的 filterwarnings 而不是 warnings.filterwarnings()：
     # pytest 每个测试都在 catch_warnings 上下文里跑，模块级设的过滤器会被重置。
     config.addinivalue_line("filterwarnings", "error::DeprecationWarning:app.*")
+
+
+# ── 响应信封的读取辅助 ────────────────────────────────────────────
+# 所有接口的响应都是 {code, msg, data}（见 app/core/envelope.py）。
+# 测试里直接写 r.json()["x"] 会拿到信封而不是载荷，这两个 helper 把这件事
+# 收在一处 —— 信封形状再变时只改这里。
+
+def body(response):
+    """成功响应的载荷。顺带断言业务码是 200 —— HTTP 2xx 不代表业务成功。"""
+    envelope = response.json()
+    assert isinstance(envelope, dict) and "code" in envelope, \
+        f"响应不是信封形状：{envelope!r}"
+    assert envelope["code"] == 200, \
+        f"业务码不是 200：code={envelope['code']} msg={envelope.get('msg')!r}"
+    return envelope["data"]
+
+
+def err(response) -> int:
+    """失败响应的业务错误码（数字）。"""
+    return response.json()["code"]
+
+
+def failed(response, code: int):
+    """断言这是一个失败响应，且业务码正好是 code。
+
+    /api 下 HTTP 状态一律 200（见 app/core/codes.py），所以
+    `assert r.status_code == 401` 这种断言已经没有区分力了 ——
+    换成断言业务码，测试比原来更强：401 只说「鉴权类」，
+    40104（密码错）与 40102（token 失效）则是两回事。
+
+    顺带把三件事一起钉住，省得每处写三行：
+      1. HTTP 状态确实是 200（没有漏改成真实状态码的接口）
+      2. body 里的业务码正确
+      3. X-Biz-Code 响应头与 body 一致（网关按它统计，不能对不上）
+    """
+    assert response.status_code == 200, (
+        f"/api 下的失败响应也该是 HTTP 200，实际 {response.status_code}；"
+        f"body={response.text[:200]}")
+    envelope = response.json()
+    assert envelope["code"] == code, (
+        f"业务码不对：期望 {code}，实际 {envelope['code']}（{envelope.get('msg')!r}）")
+    assert response.headers.get("X-Biz-Code") == str(code), (
+        f"X-Biz-Code 头与 body 对不上："
+        f"头={response.headers.get('X-Biz-Code')!r} body={code}")
+    return envelope
+
+
+def msg(response) -> str:
+    """失败响应的中文文案。"""
+    return response.json()["msg"]
 
 
 TEST_SCHEMA = os.environ.get("TEST_DB_SCHEMA", "zhusheng_test")
@@ -119,5 +183,5 @@ async def client(app):
 async def auth_client(client):
     """已登录的客户端（mock 登录）。"""
     r = await client.post("/api/v1/auth/wx-login", json={"code": "test-user"})
-    client.headers["Authorization"] = f"Bearer {r.json()['access_token']}"
+    client.headers["Authorization"] = f"Bearer {body(r)['access_token']}"
     return client

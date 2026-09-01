@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
+import {
+  CODE_ADMIN_INACTIVE, CODE_ADMIN_LOGIN_FAILED, CODE_ADMIN_NOT_FOUND,
+  CODE_ART_ID_TAKEN, CODE_ART_IN_USE, CODE_CURRENT_PASSWORD_WRONG,
+  CODE_PASSWORD_CHANGED, CODE_TOKEN_INVALID, CODE_TOKEN_KIND_MISMATCH,
+  CODE_TOKEN_MISSING, CODE_TOO_MANY_ATTEMPTS, SESSION_DEAD_CODES,
+} from '../codes'
+
 /**
  * 与后端 OpenAPI 逐字段比对。
  *
@@ -19,6 +26,7 @@ interface Schema {
 }
 
 type Spec = {
+  info: Record<string, unknown>
   paths: Record<string, unknown>
   components: { schemas: Record<string, Schema> }
 }
@@ -160,5 +168,52 @@ describe('与后端 OpenAPI 的契约', () => {
     }
 
     expect(spec, '后端可达但 spec 为 null —— 契约断言正在被静默跳过').not.toBeNull()
+  })
+})
+
+/**
+ * 错误码不许漂移。
+ *
+ * codes.ts 里的数字是手抄后端 codes.py 的，原本没有任何东西守着 ——
+ * 后端改一个编号，前端不会变红，只会在某天悄悄走错分支。
+ * 后端把全表放进 openapi.json 的 info['x-error-codes']，这里逐个比对。
+ *
+ * 只检查前端【确实登记了】的那些码：前端刻意不抄全表（其余走「显示 msg」的
+ * 通用路径），所以「后端有而前端没有」是正常的，不是错误。
+ */
+describe('错误码与后端一致', () => {
+  const backendCodes = (): Record<string, number> =>
+    (spec!.info as { 'x-error-codes'?: Record<string, number> })['x-error-codes'] ?? {}
+
+  it.skipIf(!spec)('后端暴露了错误码全表', () => {
+    expect(Object.keys(backendCodes()).length).toBeGreaterThan(20)
+  })
+
+  it.skipIf(!spec)('前端登记的每个码都与后端相同', () => {
+    const backend = backendCodes()
+    const mine: Record<string, number> = {
+      TOKEN_MISSING: CODE_TOKEN_MISSING,
+      TOKEN_INVALID: CODE_TOKEN_INVALID,
+      TOKEN_KIND_MISMATCH: CODE_TOKEN_KIND_MISMATCH,
+      ADMIN_LOGIN_FAILED: CODE_ADMIN_LOGIN_FAILED,
+      ADMIN_NOT_FOUND: CODE_ADMIN_NOT_FOUND,
+      CURRENT_PASSWORD_WRONG: CODE_CURRENT_PASSWORD_WRONG,
+      PASSWORD_CHANGED: CODE_PASSWORD_CHANGED,
+      ADMIN_INACTIVE: CODE_ADMIN_INACTIVE,
+      ART_IN_USE: CODE_ART_IN_USE,
+      ART_ID_TAKEN: CODE_ART_ID_TAKEN,
+      TOO_MANY_ATTEMPTS: CODE_TOO_MANY_ATTEMPTS,
+    }
+    for (const [name, value] of Object.entries(mine)) {
+      expect(backend[name], `后端没有 ${name} 这个码`).toBeDefined()
+      expect(backend[name], `${name} 的编号与后端不一致`).toBe(value)
+    }
+  })
+
+  it.skipIf(!spec)('SESSION_DEAD_CODES 里的码后端都还在', () => {
+    const values = new Set(Object.values(backendCodes()))
+    for (const code of SESSION_DEAD_CODES) {
+      expect(values.has(code), `后端已无 ${code} 这个码，自动登出会失灵`).toBe(true)
+    }
   })
 })

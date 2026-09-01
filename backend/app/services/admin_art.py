@@ -4,11 +4,11 @@
 统计「被收藏次数」只数 rewards 的行数，不读任何用户内容。
 """
 
-from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.assets import asset_url
+from app.core.errors import ApiError
 from app.models import ArtWork
 from app.repositories import art as art_repo
 from app.schemas.admin import AdminArtCreate, AdminArtItem, AdminArtUpdate
@@ -34,20 +34,20 @@ def to_item(art: ArtWork, reward_count: int) -> AdminArtItem:
 async def get_or_404(session: AsyncSession, art_id: str) -> ArtWork:
     art = await session.get(ArtWork, art_id)
     if art is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "ART_NOT_FOUND")
+        raise ApiError("ART_NOT_FOUND")
     return art
 
 
 async def create(session: AsyncSession, payload: AdminArtCreate) -> ArtWork:
     if await session.get(ArtWork, payload.id) is not None:
-        raise HTTPException(status.HTTP_409_CONFLICT, "ART_ID_TAKEN")
+        raise ApiError("ART_ID_TAKEN")
     art = ArtWork(**payload.model_dump())
     session.add(art)
     try:
         await session.flush()
     except IntegrityError as exc:
         # 并发下两个管理员填了同一个 slug；唯一约束是最终防线
-        raise HTTPException(status.HTTP_409_CONFLICT, "ART_ID_TAKEN") from exc
+        raise ApiError("ART_ID_TAKEN") from exc
     return art
 
 
@@ -68,9 +68,9 @@ async def delete(session: AsyncSession, art_id: str) -> None:
     """
     art = await get_or_404(session, art_id)
     if await art_repo.count_rewards_for(session, art_id) > 0:
-        raise HTTPException(status.HTTP_409_CONFLICT, "ART_IN_USE")
+        raise ApiError("ART_IN_USE")
     await session.delete(art)
     try:
         await session.flush()
     except IntegrityError as exc:
-        raise HTTPException(status.HTTP_409_CONFLICT, "ART_IN_USE") from exc
+        raise ApiError("ART_IN_USE") from exc

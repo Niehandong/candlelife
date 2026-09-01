@@ -5,6 +5,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 import pytest_asyncio
 
+from app.core import codes
+from tests.conftest import body, err, failed
 from app.core.password import hash_password
 from app.core.security import create_access_token, create_admin_token
 from app.models import AdminUser
@@ -53,10 +55,10 @@ async def test_login_returns_admin_token(client, session):
     r = await client.post("/api/v1/admin/login",
                           json={"username": "alice", "password": PASSWORD})
     assert r.status_code == 200
-    body = r.json()
-    assert body["access_token"]
-    assert body["token_type"] == "bearer"
-    assert body["expires_in"] == 8 * 60 * 60
+    payload = body(r)
+    assert payload["access_token"]
+    assert payload["token_type"] == "bearer"
+    assert payload["expires_in"] == 8 * 60 * 60
 
 
 async def test_login_records_last_login_at(client, session):
@@ -69,14 +71,15 @@ async def test_login_records_last_login_at(client, session):
 
 
 async def test_wrong_password_and_unknown_user_are_indistinguishable(client, session):
-    """不泄露「这个用户名存在」——两种失败的状态码与错误码必须完全一致。"""
+    """不泄露「这个用户名存在」——两种失败的响应必须逐字相同。"""
     await _make_admin(session, "carol")
     wrong = await client.post("/api/v1/admin/login",
                               json={"username": "carol", "password": "nope"})
     missing = await client.post("/api/v1/admin/login",
                                 json={"username": "nobody", "password": "nope"})
-    assert wrong.status_code == missing.status_code == 401
-    assert wrong.json()["code"] == missing.json()["code"] == "ADMIN_LOGIN_FAILED"
+    failed(wrong, codes.ADMIN_LOGIN_FAILED)
+    failed(missing, codes.ADMIN_LOGIN_FAILED)
+    # 整个信封逐字相同 —— 连 msg 都不能有差别，否则就是一条侧信道
     assert wrong.json() == missing.json()
 
 
@@ -84,8 +87,7 @@ async def test_inactive_admin_cannot_login(client, session):
     await _make_admin(session, "dave", active=False)
     r = await client.post("/api/v1/admin/login",
                           json={"username": "dave", "password": PASSWORD})
-    assert r.status_code == 403
-    assert r.json()["code"] == "ADMIN_INACTIVE"
+    failed(r, codes.ADMIN_INACTIVE)
 
 
 async def test_me_returns_username(client, session):
@@ -94,7 +96,7 @@ async def test_me_returns_username(client, session):
     r = await client.get("/api/v1/admin/me",
                          headers={"Authorization": f"Bearer {token}"})
     assert r.status_code == 200
-    assert r.json()["username"] == "erin"
+    assert body(r)["username"] == "erin"
 
 
 async def test_me_rejects_user_token(client, session):
@@ -102,14 +104,12 @@ async def test_me_rejects_user_token(client, session):
     token = create_access_token(uuid.uuid4())
     r = await client.get("/api/v1/admin/me",
                          headers={"Authorization": f"Bearer {token}"})
-    assert r.status_code == 401
-    assert r.json()["code"] == "TOKEN_KIND_MISMATCH"
+    failed(r, codes.TOKEN_KIND_MISMATCH)
 
 
 async def test_me_rejects_missing_token(client):
     r = await client.get("/api/v1/admin/me")
-    assert r.status_code == 401
-    assert r.json()["code"] == "TOKEN_MISSING"
+    failed(r, codes.TOKEN_MISSING)
 
 
 async def test_me_rejects_deleted_admin(client):
@@ -117,8 +117,7 @@ async def test_me_rejects_deleted_admin(client):
     token = create_admin_token(uuid.uuid4())
     r = await client.get("/api/v1/admin/me",
                          headers={"Authorization": f"Bearer {token}"})
-    assert r.status_code == 401
-    assert r.json()["code"] == "ADMIN_NOT_FOUND"
+    failed(r, codes.ADMIN_NOT_FOUND)
 
 
 async def test_me_rejects_admin_deactivated_after_login(client, session):
@@ -129,8 +128,7 @@ async def test_me_rejects_admin_deactivated_after_login(client, session):
     await session.flush()
     r = await client.get("/api/v1/admin/me",
                          headers={"Authorization": f"Bearer {token}"})
-    assert r.status_code == 403
-    assert r.json()["code"] == "ADMIN_INACTIVE"
+    failed(r, codes.ADMIN_INACTIVE)
 
 
 async def test_rate_limit_blocks_sixth_attempt(client, session):
@@ -140,13 +138,14 @@ async def test_rate_limit_blocks_sixth_attempt(client, session):
     fake.incr.side_effect = [1, 2, 3, 4, 5, 6]
     fake.expire.return_value = True
     with patch("app.services.admin_auth.get_redis", return_value=fake):
-        codes = []
+        # 局部变量【不能叫 codes】—— 那会遮蔽 app.core.codes 模块
+        got = []
         for _ in range(6):
             r = await client.post("/api/v1/admin/login",
                                   json={"username": "grace", "password": "wrong"})
-            codes.append(r.status_code)
-    assert codes[:5] == [401] * 5
-    assert codes[5] == 429
+            got.append(err(r))
+    assert got[:5] == [codes.ADMIN_LOGIN_FAILED] * 5
+    assert got[5] == codes.TOO_MANY_ATTEMPTS
 
 
 async def test_rate_limit_degrades_open_when_redis_down(client, session):
@@ -173,7 +172,8 @@ async def test_login_rejects_overlong_password_without_500(client, session):
     await _make_admin(session, "judy")
     r = await client.post("/api/v1/admin/login",
                           json={"username": "judy", "password": "x" * 200})
-    assert r.status_code == 422
+    # Pydantic 的 max_length 先拦下，走不到 service 里的字节校验
+    failed(r, codes.UNPROCESSABLE)
 
 
 async def test_login_response_never_contains_password_or_hash(client, session):

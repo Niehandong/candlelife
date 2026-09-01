@@ -4,12 +4,13 @@ import pytest
 from sqlalchemy import func, select
 
 from app.models import ArtWork, NightRecord, Reward, User
+from tests.conftest import body
 
 SH = timezone(timedelta(hours=8))
 
 
 def _freeze(monkeypatch, iso: str):
-    monkeypatch.setattr("app.api.v1.rewards._now", lambda: datetime.fromisoformat(iso))
+    monkeypatch.setattr("app.core.clock.now", lambda: datetime.fromisoformat(iso))
 
 
 async def _uid(session):
@@ -46,15 +47,15 @@ async def test_pending_empty_before_window(ctx, monkeypatch):
     c, session, uid = ctx
     await _seed_nights(session, uid, ["2026-08-27"])
     _freeze(monkeypatch, "2026-08-28T05:59:00+08:00")
-    assert (await c.get("/api/v1/rewards/pending")).json()["revealable"] is False
+    assert body(await c.get("/api/v1/rewards/pending"))["revealable"] is False
 
 
 async def test_pending_opens_at_six(ctx, monkeypatch):
     c, session, uid = ctx
     await _seed_nights(session, uid, ["2026-08-27"])
     _freeze(monkeypatch, "2026-08-28T06:00:00+08:00")
-    body = (await c.get("/api/v1/rewards/pending")).json()
-    assert body["revealable"] is True and body["ritual_dates"] == ["2026-08-27"]
+    payload = body(await c.get("/api/v1/rewards/pending"))
+    assert payload["revealable"] is True and payload["ritual_dates"] == ["2026-08-27"]
 
 
 async def test_reveal_creates_rewards_and_is_idempotent(ctx, monkeypatch):
@@ -62,9 +63,9 @@ async def test_reveal_creates_rewards_and_is_idempotent(ctx, monkeypatch):
     await _seed_nights(session, uid, ["2026-08-27"])
     _freeze(monkeypatch, "2026-08-28T07:00:00+08:00")
 
-    first = (await c.post("/api/v1/rewards/reveal")).json()["rewards"]
+    first = body(await c.post("/api/v1/rewards/reveal"))["rewards"]
     assert len(first) == 1
-    second = (await c.post("/api/v1/rewards/reveal")).json()["rewards"]
+    second = body(await c.post("/api/v1/rewards/reveal"))["rewards"]
     assert second == []                                    # 不重抽
     assert await session.scalar(select(func.count()).select_from(Reward)) == 1
 
@@ -74,7 +75,7 @@ async def test_reveal_multiple_pending_nights(ctx, monkeypatch):
     c, session, uid = ctx
     await _seed_nights(session, uid, ["2026-08-25", "2026-08-26", "2026-08-27"])
     _freeze(monkeypatch, "2026-08-29T09:00:00+08:00")
-    rewards = (await c.post("/api/v1/rewards/reveal")).json()["rewards"]
+    rewards = body(await c.post("/api/v1/rewards/reveal"))["rewards"]
     assert len(rewards) == 4
     assert {r["ritual_date"] for r in rewards} == {"2026-08-25", "2026-08-26", "2026-08-27"}
 
@@ -85,7 +86,7 @@ async def test_draw_count_uses_streak_at_that_night(ctx, monkeypatch):
     # 08-21..08-27 连续 7 晚，08-28 缺席，08-29 才打开
     await _seed_nights(session, uid, [f"2026-08-{d}" for d in range(21, 28)])
     _freeze(monkeypatch, "2026-08-29T09:00:00+08:00")
-    rewards = (await c.post("/api/v1/rewards/reveal")).json()["rewards"]
+    rewards = body(await c.post("/api/v1/rewards/reveal"))["rewards"]
     # 7 晚：第 3 晚 +1、第 7 晚 +1，其余各 1 → 7 + 2 = 9
     assert len(rewards) == 9
 
@@ -99,7 +100,7 @@ async def test_ineligible_night_gets_no_reward(ctx, monkeypatch):
     c, session, uid = ctx
     await _seed_nights(session, uid, ["2026-08-27"], eligible=False)
     _freeze(monkeypatch, "2026-08-29T09:00:00+08:00")
-    assert (await c.post("/api/v1/rewards/reveal")).json()["rewards"] == []
+    assert body(await c.post("/api/v1/rewards/reveal"))["rewards"] == []
 
 
 async def test_withdrawn_art_excluded_from_pool(ctx, monkeypatch):
@@ -109,7 +110,7 @@ async def test_withdrawn_art_excluded_from_pool(ctx, monkeypatch):
     await session.flush()
     await _seed_nights(session, uid, ["2026-08-27"])
     _freeze(monkeypatch, "2026-08-29T09:00:00+08:00")
-    assert (await c.post("/api/v1/rewards/reveal")).json()["rewards"] == []
+    assert body(await c.post("/api/v1/rewards/reveal"))["rewards"] == []
 
 
 async def test_deactivated_art_excluded_from_pool(ctx, monkeypatch, session):
@@ -120,7 +121,7 @@ async def test_deactivated_art_excluded_from_pool(ctx, monkeypatch, session):
     await session.flush()
     await _seed_nights(session, uid, ["2026-08-27"])
     _freeze(monkeypatch, "2026-08-29T09:00:00+08:00")
-    rewards = (await c.post("/api/v1/rewards/reveal")).json()["rewards"]
+    rewards = body(await c.post("/api/v1/rewards/reveal"))["rewards"]
     assert len(rewards) == 1
     assert rewards[0]["art"]["id"] == rows[0].id      # 只可能抽到唯一上架的那幅
 
@@ -129,5 +130,5 @@ async def test_asset_url_is_absolute(ctx, monkeypatch):
     c, session, uid = ctx
     await _seed_nights(session, uid, ["2026-08-27"])
     _freeze(monkeypatch, "2026-08-28T07:00:00+08:00")
-    art = (await c.post("/api/v1/rewards/reveal")).json()["rewards"][0]["art"]
+    art = body(await c.post("/api/v1/rewards/reveal"))["rewards"][0]["art"]
     assert art["image"].startswith("http") and art["image"].endswith(".jpg")

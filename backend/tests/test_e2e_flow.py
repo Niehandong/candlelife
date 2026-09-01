@@ -8,15 +8,25 @@ from datetime import datetime
 import pytest
 from sqlalchemy import func, select
 
+from app.core import codes
 from app.models import AnalyticsEvent, ArtWork, NightRecord, Reward, User
 from scripts.art_seed_data import ART_SEED
+from tests.conftest import body, err, failed
+
+# 未鉴权时可能出现的三种业务码，都在 401xx 段
+TOKEN_ERRORS = {codes.TOKEN_MISSING, codes.TOKEN_INVALID,
+                codes.TOKEN_KIND_MISMATCH}
 
 
 def freeze(monkeypatch, iso: str):
-    """同时冻结两个路由模块的时间源。"""
+    """冻结时间。
+
+    只有【一个】patch 点 —— 当前时刻统一从 app.core.clock.now() 取。
+    原先 nights 与 rewards 两个路由模块各有一份 _now()，这里要 patch 两处，
+    漏一处就得到「一半冻住一半没冻」的诡异状态。
+    """
     dt = datetime.fromisoformat(iso)
-    monkeypatch.setattr("app.api.v1.rewards._now", lambda: dt)
-    monkeypatch.setattr("app.api.v1.nights._now", lambda: dt)
+    monkeypatch.setattr("app.core.clock.now", lambda: dt)
 
 
 @pytest.fixture
@@ -33,11 +43,11 @@ async def seeded_art(session):
 async def test_full_journey_login_to_reward(auth_client, session, seeded_art, monkeypatch):
     """登录 → 设置 → 完成仪式 → 次日揭晓 → 收藏 → 夜记 → 注销。"""
     # 1. 新用户拿到默认设置
-    me = (await auth_client.get("/api/v1/me")).json()
+    me = body(await auth_client.get("/api/v1/me"))
     assert me["settings"]["bedtime"] == "23:30"
 
     # 2. 公开配置可取（小程序启动即需要）
-    cfg = (await auth_client.get("/api/v1/config")).json()
+    cfg = body(await auth_client.get("/api/v1/config"))
     assert cfg["ritual"]["tolerance_minutes"] == 30
 
     # 3. 按时完成仪式
@@ -46,32 +56,32 @@ async def test_full_journey_login_to_reward(auth_client, session, seeded_art, mo
         "gratitudes": ["感谢今天的阳光", "感谢一顿好饭"],
         "plans": ["明天早起", "把报告写完"],
         "resistance_reason": "我还在刷手机"})
-    assert r.json() == {"ritual_date": "2026-08-27", "is_eligible": True,
+    assert body(r) == {"ritual_date": "2026-08-27", "is_eligible": True,
                         "late_minutes": 20, "streak": 1}
 
     # 4. 当晚不可揭晓
     freeze(monkeypatch, "2026-08-27T23:55:00+08:00")
-    assert (await auth_client.get("/api/v1/rewards/pending")).json()["revealable"] is False
-    assert (await auth_client.post("/api/v1/rewards/reveal")).json()["rewards"] == []
+    assert body(await auth_client.get("/api/v1/rewards/pending"))["revealable"] is False
+    assert body(await auth_client.post("/api/v1/rewards/reveal"))["rewards"] == []
 
     # 5. 次日 06:00 后揭晓
     freeze(monkeypatch, "2026-08-28T07:30:00+08:00")
-    assert (await auth_client.get("/api/v1/rewards/pending")).json()["revealable"] is True
-    rewards = (await auth_client.post("/api/v1/rewards/reveal")).json()["rewards"]
+    assert body(await auth_client.get("/api/v1/rewards/pending"))["revealable"] is True
+    rewards = body(await auth_client.post("/api/v1/rewards/reveal"))["rewards"]
     assert len(rewards) == 1
     art_id = rewards[0]["art"]["id"]
     assert rewards[0]["art"]["image"].startswith("http")
 
     # 6. 收藏可见
-    col = (await auth_client.get("/api/v1/collection")).json()
+    col = body(await auth_client.get("/api/v1/collection"))
     assert col["total_cards"] == 1 and col["unique_works"] == 1
 
     # 7. 作品详情含文章与来源
-    detail = (await auth_client.get(f"/api/v1/art/{art_id}")).json()
+    detail = body(await auth_client.get(f"/api/v1/art/{art_id}"))
     assert len(detail["article"]) >= 40 and "http" in detail["source"]
 
     # 8. 夜记正文可读，且库里是密文
-    night = (await auth_client.get("/api/v1/nights/2026-08-27")).json()
+    night = body(await auth_client.get("/api/v1/nights/2026-08-27"))
     assert night["gratitudes"] == ["感谢今天的阳光", "感谢一顿好饭"]
     assert night["resistance_reason"] == "我还在刷手机"
     row = await session.scalar(select(NightRecord))
@@ -80,10 +90,10 @@ async def test_full_journey_login_to_reward(auth_client, session, seeded_art, mo
     # 9. 上报匿名事件
     assert (await auth_client.post("/api/v1/events", json={"events": [
         {"type": "reward_revealed", "payload": {"draws": 1},
-         "occurred_at": "2026-08-28T07:30:00+08:00"}]})).status_code == 202
+         "occurred_at": "2026-08-28T07:30:00+08:00"}]})).status_code == 200
 
     # 10. 注销后一切清空
-    assert (await auth_client.delete("/api/v1/me")).status_code == 204
+    assert body(await auth_client.delete("/api/v1/me")) is None
     for model in (User, NightRecord, Reward, AnalyticsEvent):
         assert await session.scalar(select(func.count()).select_from(model)) == 0, model.__name__
 
@@ -94,10 +104,10 @@ async def test_thirty_night_journey_milestones(auth_client, session, seeded_art,
         d = f"2026-09-{day:02d}"
         r = await auth_client.post("/api/v1/nights/complete", json={
             "completed_at": f"{d}T23:40:00+08:00", "gratitudes": [], "plans": []})
-        assert r.json()["streak"] == day, f"第 {day} 晚"
+        assert body(r)["streak"] == day, f"第 {day} 晚"
 
     freeze(monkeypatch, "2026-10-01T09:00:00+08:00")
-    rewards = (await auth_client.post("/api/v1/rewards/reveal")).json()["rewards"]
+    rewards = body(await auth_client.post("/api/v1/rewards/reveal"))["rewards"]
 
     # 第 1–13 晚基础 1 抽（含里程碑 3、7 各 +1）= 15
     # 第 14 晚基础 2 + 里程碑 1 = 3
@@ -125,12 +135,12 @@ async def test_correction_1_reveal_window_uniform(auth_client, session, seeded_a
         "timezone": "Asia/Shanghai", "reduced_motion": False})
     r = await auth_client.post("/api/v1/nights/complete", json={
         "completed_at": "2026-08-28T00:45:00+08:00", "gratitudes": [], "plans": []})
-    assert r.json()["ritual_date"] == "2026-08-27"      # 归属前一晚
+    assert body(r)["ritual_date"] == "2026-08-27"      # 归属前一晚
 
     freeze(monkeypatch, "2026-08-28T05:59:00+08:00")
-    assert (await auth_client.get("/api/v1/rewards/pending")).json()["revealable"] is False
+    assert body(await auth_client.get("/api/v1/rewards/pending"))["revealable"] is False
     freeze(monkeypatch, "2026-08-28T06:00:00+08:00")
-    assert (await auth_client.get("/api/v1/rewards/pending")).json()["revealable"] is True
+    assert body(await auth_client.get("/api/v1/rewards/pending"))["revealable"] is True
 
 
 async def test_correction_2_streak_decays(auth_client):
@@ -142,18 +152,18 @@ async def test_correction_2_streak_decays(auth_client):
     # 隔 18 天再来，连续应从 1 重新开始
     r = await auth_client.post("/api/v1/nights/complete", json={
         "completed_at": "2026-08-20T23:40:00+08:00", "gratitudes": [], "plans": []})
-    assert r.json()["streak"] == 1
+    assert body(r)["streak"] == 1
 
 
 async def test_correction_3_eligibility_window(auth_client):
     """修正 3：下午刷完流程不合格；提前入睡但在窗口内合格。"""
     r = await auth_client.post("/api/v1/nights/complete", json={
         "completed_at": "2026-08-27T17:30:00+08:00", "gratitudes": [], "plans": []})
-    assert r.json()["is_eligible"] is False          # 原型此处会判为合格
+    assert body(r)["is_eligible"] is False          # 原型此处会判为合格
 
     r = await auth_client.post("/api/v1/nights/complete", json={
         "completed_at": "2026-08-28T21:00:00+08:00", "gratitudes": [], "plans": []})
-    assert r.json()["is_eligible"] is True           # 提前 2.5 小时，仍在窗口内
+    assert body(r)["is_eligible"] is True           # 提前 2.5 小时，仍在窗口内
 
 
 async def test_correction_4_incentive_curve(auth_client, session, seeded_art, monkeypatch):
@@ -200,7 +210,7 @@ async def test_correction_5_backend_rejects_draft(auth_client):
     r = await auth_client.post("/api/v1/nights/complete", json={
         "completed_at": "2026-08-27T23:40:00+08:00", "gratitudes": [], "plans": [],
         "draft": {"gratitudes": ["草稿内容"]}})
-    assert r.status_code == 422
+    failed(r, codes.UNPROCESSABLE)
 
 
 async def test_correction_6_timezone_explicit(auth_client):
@@ -210,7 +220,7 @@ async def test_correction_6_timezone_explicit(auth_client):
         "timezone": "America/New_York", "reduced_motion": False})
     r = await auth_client.post("/api/v1/nights/complete", json={
         "completed_at": "2026-08-27T23:45:00-04:00", "gratitudes": [], "plans": []})
-    assert r.json() == {"ritual_date": "2026-08-27", "is_eligible": True,
+    assert body(r) == {"ritual_date": "2026-08-27", "is_eligible": True,
                         "late_minutes": 15, "streak": 1}
 
 
@@ -223,12 +233,12 @@ async def test_correction_7_text_editable_within_window(auth_client, monkeypatch
     freeze(monkeypatch, "2026-08-28T05:00:00+08:00")
     assert (await auth_client.patch("/api/v1/nights/2026-08-27",
             json={"gratitudes": ["改好了"], "plans": []})).status_code == 200
-    assert (await auth_client.get(
-        "/api/v1/nights/2026-08-27")).json()["gratitudes"] == ["改好了"]
+    assert body(await auth_client.get(
+        "/api/v1/nights/2026-08-27"))["gratitudes"] == ["改好了"]
 
     freeze(monkeypatch, "2026-08-28T06:00:00+08:00")
-    assert (await auth_client.patch("/api/v1/nights/2026-08-27",
-            json={"gratitudes": ["太晚了"], "plans": []})).status_code == 409
+    failed(await auth_client.patch("/api/v1/nights/2026-08-27",
+           json={"gratitudes": ["太晚了"], "plans": []}), codes.RECORD_LOCKED)
 
 
 # ---------------------------------------------------------------- 横切关注
@@ -244,30 +254,31 @@ async def test_all_write_endpoints_require_auth(client):
         ("get", "/api/v1/collection", None),
         ("delete", "/api/v1/me", None),
     ]
-    for method, path, body in cases:
-        r = await getattr(client, method)(path, **({"json": body} if body else {}))
-        assert r.status_code == 401, f"{method.upper()} {path} 未鉴权"
-        assert r.json()["code"].startswith("TOKEN"), path
+    # 循环变量不叫 body —— 那是 conftest 里读信封载荷的 helper 名
+    for method, path, payload in cases:
+        r = await getattr(client, method)(path, **({"json": payload} if payload else {}))
+        assert err(r) in TOKEN_ERRORS, f"{method.upper()} {path} 未鉴权"
 
 
 async def test_users_are_isolated(client, session, seeded_art, monkeypatch):
     """A 的夜记与奖励，B 一概看不见。"""
     a = await client.post("/api/v1/auth/wx-login", json={"code": "user-a"})
     b = await client.post("/api/v1/auth/wx-login", json={"code": "user-b"})
-    ha = {"Authorization": f"Bearer {a.json()['access_token']}"}
-    hb = {"Authorization": f"Bearer {b.json()['access_token']}"}
+    ha = {"Authorization": f"Bearer {body(a)['access_token']}"}
+    hb = {"Authorization": f"Bearer {body(b)['access_token']}"}
 
     await client.post("/api/v1/nights/complete", headers=ha, json={
         "completed_at": "2026-08-27T23:40:00+08:00",
         "gratitudes": ["A 的私人内容"], "plans": []})
 
-    assert (await client.get("/api/v1/nights", headers=hb)).json()["items"] == []
-    assert (await client.get("/api/v1/nights/2026-08-27", headers=hb)).status_code == 404
-    assert (await client.get("/api/v1/collection", headers=hb)).json()["total_cards"] == 0
+    assert body(await client.get("/api/v1/nights", headers=hb))["items"] == []
+    failed(await client.get("/api/v1/nights/2026-08-27", headers=hb),
+           codes.NIGHT_NOT_FOUND)
+    assert body(await client.get("/api/v1/collection", headers=hb))["total_cards"] == 0
 
     freeze(monkeypatch, "2026-08-28T07:00:00+08:00")
-    assert (await client.post("/api/v1/rewards/reveal", headers=hb)).json()["rewards"] == []
-    assert len((await client.post("/api/v1/rewards/reveal", headers=ha)).json()["rewards"]) == 1
+    assert body(await client.post("/api/v1/rewards/reveal", headers=hb))["rewards"] == []
+    assert len(body(await client.post("/api/v1/rewards/reveal", headers=ha))["rewards"]) == 1
 
 
 async def test_no_endpoint_leaks_private_text_or_secrets(auth_client, seeded_art, monkeypatch):

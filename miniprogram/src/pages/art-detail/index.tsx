@@ -6,6 +6,7 @@ import { api } from '@/api/endpoints'
 import type { ArtDetail as Art } from '@/api/types'
 import Screen from '@/components/Screen'
 import './index.scss'
+import { CODE_ART_WITHDRAWN } from '@/api/codes'
 
 export default function ArtDetail() {
   const { params } = useRouter()
@@ -16,8 +17,9 @@ export default function ArtDetail() {
     api.getArt(params.id ?? '')
       .then(setArt)
       .catch((e: ApiError) => {
-        // 410：作品因版权等原因被撤回，已收藏用户也不再展示
-        if (e.status === 410) setGone(true)
+        // 作品因版权等原因被撤回，已收藏用户也不再展示。
+        // 判断依据是业务码而非 HTTP 410 —— 后端 /api 下的状态一律 200。
+        if (e.code === CODE_ART_WITHDRAWN) setGone(true)
         else Taro.showToast({ title: '打不开这幅作品', icon: 'none' })
       })
   }, [params.id])

@@ -1,5 +1,7 @@
 from sqlalchemy import func, select
 
+from tests.conftest import body, failed
+from app.core import codes
 from app.models import NightRecord
 
 
@@ -8,7 +10,7 @@ async def test_complete_on_time(auth_client):
         "completed_at": "2026-08-27T23:59:00+08:00",
         "gratitudes": ["感谢今天的阳光"], "plans": ["早点起"]})
     assert r.status_code == 200
-    assert r.json() == {"ritual_date": "2026-08-27", "is_eligible": True,
+    assert body(r) == {"ritual_date": "2026-08-27", "is_eligible": True,
                         "late_minutes": 29, "streak": 1}
 
 
@@ -17,30 +19,30 @@ async def test_complete_outside_window_still_creates_record(auth_client, session
     r = await auth_client.post("/api/v1/nights/complete", json={
         "completed_at": "2026-08-27T17:30:00+08:00", "gratitudes": [], "plans": []})
     assert r.status_code == 200
-    body = r.json()
-    assert body["is_eligible"] is False and body["streak"] == 0
+    payload = body(r)
+    assert payload["is_eligible"] is False and payload["streak"] == 0
     assert await session.scalar(select(func.count()).select_from(NightRecord)) == 1
 
 
 async def test_late_beyond_tolerance_not_eligible(auth_client):
     r = await auth_client.post("/api/v1/nights/complete", json={
         "completed_at": "2026-08-28T00:01:00+08:00", "gratitudes": [], "plans": []})
-    body = r.json()
-    assert body["ritual_date"] == "2026-08-27"
-    assert body["late_minutes"] == 31 and body["is_eligible"] is False
+    payload = body(r)
+    assert payload["ritual_date"] == "2026-08-27"
+    assert payload["late_minutes"] == 31 and payload["is_eligible"] is False
 
 
 async def test_repeat_completion_is_idempotent(auth_client, session):
     payload = {"completed_at": "2026-08-27T23:59:00+08:00",
                "gratitudes": ["第一次"], "plans": []}
-    first = (await auth_client.post("/api/v1/nights/complete", json=payload)).json()
+    first = body(await auth_client.post("/api/v1/nights/complete", json=payload))
     payload["gratitudes"] = ["第二次"]
-    second = (await auth_client.post("/api/v1/nights/complete", json=payload)).json()
+    second = body(await auth_client.post("/api/v1/nights/complete", json=payload))
 
     assert first == second                        # 200 + 既有数据，不是 409
     assert await session.scalar(select(func.count()).select_from(NightRecord)) == 1
     # 首次写入的正文不被第二次覆盖
-    detail = (await auth_client.get("/api/v1/nights/2026-08-27")).json()
+    detail = body(await auth_client.get("/api/v1/nights/2026-08-27"))
     assert detail["gratitudes"] == ["第一次"]
 
 
@@ -49,7 +51,7 @@ async def test_client_cannot_forge_eligibility(auth_client):
     r = await auth_client.post("/api/v1/nights/complete", json={
         "completed_at": "2026-08-27T17:30:00+08:00", "gratitudes": [], "plans": [],
         "is_eligible": True, "late_minutes": 0, "streak": 99})
-    assert r.status_code == 422
+    failed(r, codes.UNPROCESSABLE)
 
 
 async def test_text_is_encrypted_at_rest(auth_client, session):
@@ -68,7 +70,7 @@ async def test_timezone_is_respected(auth_client):
         "timezone": "America/New_York", "reduced_motion": False})
     r = await auth_client.post("/api/v1/nights/complete", json={
         "completed_at": "2026-08-27T23:45:00-04:00", "gratitudes": [], "plans": []})
-    assert r.json() == {"ritual_date": "2026-08-27", "is_eligible": True,
+    assert body(r) == {"ritual_date": "2026-08-27", "is_eligible": True,
                         "late_minutes": 15, "streak": 1}
 
 
@@ -76,4 +78,4 @@ async def test_streak_accumulates(auth_client):
     for day, expected in [("25", 1), ("26", 2), ("27", 3)]:
         r = await auth_client.post("/api/v1/nights/complete", json={
             "completed_at": f"2026-08-{day}T23:40:00+08:00", "gratitudes": [], "plans": []})
-        assert r.json()["streak"] == expected, day
+        assert body(r)["streak"] == expected, day

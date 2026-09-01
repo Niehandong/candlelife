@@ -5,6 +5,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from sqlalchemy import func, select
 
+from tests.conftest import body, err, failed
+from app.core import codes
 from app.core.password import hash_password
 from app.core.security import create_admin_token
 from app.domain.config import DEFAULT_CONFIG, config_to_dict
@@ -32,15 +34,15 @@ async def test_get_config_returns_defaults_when_never_saved(client, session):
     h = await _admin_headers(session)
     r = await client.get("/api/v1/admin/config", headers=h)
     assert r.status_code == 200
-    body = r.json()
-    assert body["config"]["app"]["name"] == "烛生"
-    assert body["updated_by"] is None
-    assert body["updated_at"] is None
+    payload = body(r)
+    assert payload["config"]["app"]["name"] == "烛生"
+    assert payload["updated_by"] is None
+    assert payload["updated_at"] is None
 
 
 async def test_get_config_requires_admin_token(client):
     r = await client.get("/api/v1/admin/config")
-    assert r.status_code == 401
+    failed(r, codes.TOKEN_MISSING)
 
 
 async def test_get_config_reads_saved_row(client, session):
@@ -50,8 +52,8 @@ async def test_get_config_reads_saved_row(client, session):
     session.add(AppConfig(id=1, data=data, updated_by="someone"))
     await session.flush()
     r = await client.get("/api/v1/admin/config", headers=h)
-    assert r.json()["config"]["app"]["slogan"] == "陪你好好睡"
-    assert r.json()["updated_by"] == "someone"
+    assert body(r)["config"]["app"]["slogan"] == "陪你好好睡"
+    assert body(r)["updated_by"] == "someone"
 
 
 # ---------- 写 ----------
@@ -63,8 +65,8 @@ async def test_put_config_saves_and_is_readable(client, session):
     r = await client.put("/api/v1/admin/config", json=data, headers=h)
     assert r.status_code == 200
     again = await client.get("/api/v1/admin/config", headers=h)
-    assert again.json()["config"]["ritual"]["tolerance_minutes"] == 15
-    assert again.json()["updated_by"] == "cfgadmin"
+    assert body(again)["config"]["ritual"]["tolerance_minutes"] == 15
+    assert body(again)["updated_by"] == "cfgadmin"
 
 
 async def test_put_config_overwrites_the_single_row(client, session):
@@ -78,7 +80,7 @@ async def test_put_config_overwrites_the_single_row(client, session):
 
 async def test_put_config_requires_admin_token(client):
     r = await client.put("/api/v1/admin/config", json=_full_payload())
-    assert r.status_code == 401
+    failed(r, codes.TOKEN_MISSING)
 
 
 # ---------- dry_run ----------
@@ -91,12 +93,12 @@ async def test_dry_run_reports_changes_without_writing(client, session):
 
     r = await client.put("/api/v1/admin/config?dry_run=true", json=data, headers=h)
     assert r.status_code == 200
-    body = r.json()
-    assert body["valid"] is True
-    assert body["errors"] == []
-    assert {c["path"] for c in body["changes"]} == {
+    payload = body(r)
+    assert payload["valid"] is True
+    assert payload["errors"] == []
+    assert {c["path"] for c in payload["changes"]} == {
         "app.slogan", "ritual.tolerance_minutes"}
-    change = next(c for c in body["changes"] if c["path"] == "ritual.tolerance_minutes")
+    change = next(c for c in payload["changes"] if c["path"] == "ritual.tolerance_minutes")
     assert change["from"] == 30
     assert change["to"] == 15
 
@@ -107,7 +109,7 @@ async def test_dry_run_of_unchanged_payload_is_empty(client, session):
     h = await _admin_headers(session)
     r = await client.put("/api/v1/admin/config?dry_run=true",
                          json=_full_payload(), headers=h)
-    assert r.json()["changes"] == []
+    assert body(r)["changes"] == []
 
 
 # ---------- 校验边界 ----------
@@ -138,7 +140,7 @@ async def test_invalid_field_returns_422(client, session, group, field, bad):
     data = _full_payload()
     data[group][field] = bad
     r = await client.put("/api/v1/admin/config", json=data, headers=h)
-    assert r.status_code == 422, f"{group}.{field}={bad!r} 本应被拒绝"
+    assert err(r) == codes.CONFIG_INVALID, f"{group}.{field}={bad!r} 本应被拒绝"
 
 
 async def test_min_time_equal_max_time_is_rejected(client, session):
@@ -148,7 +150,7 @@ async def test_min_time_equal_max_time_is_rejected(client, session):
     data["schedule"]["min_time"] = "22:00"
     data["schedule"]["max_time"] = "22:00"
     r = await client.put("/api/v1/admin/config", json=data, headers=h)
-    assert r.status_code == 422
+    failed(r, codes.CONFIG_INVALID)
 
 
 async def test_dry_run_reports_errors_instead_of_422(client, session):
@@ -158,10 +160,10 @@ async def test_dry_run_reports_errors_instead_of_422(client, session):
     data["ritual"]["tolerance_minutes"] = 999
     r = await client.put("/api/v1/admin/config?dry_run=true", json=data, headers=h)
     assert r.status_code == 200
-    body = r.json()
-    assert body["valid"] is False
-    assert any("tolerance_minutes" in e["field"] for e in body["errors"])
-    assert body["changes"] == []
+    payload = body(r)
+    assert payload["valid"] is False
+    assert any("tolerance_minutes" in e["field"] for e in payload["errors"])
+    assert payload["changes"] == []
 
 
 async def test_unknown_field_is_rejected(client, session):
@@ -170,7 +172,7 @@ async def test_unknown_field_is_rejected(client, session):
     data = _full_payload()
     data["ritual"]["tolerence_minutes"] = 15          # 故意拼错
     r = await client.put("/api/v1/admin/config", json=data, headers=h)
-    assert r.status_code == 422
+    failed(r, codes.CONFIG_INVALID)
 
 
 # ---------- 导出 ----------
@@ -196,16 +198,16 @@ async def test_public_config_reflects_saved_values(client, session):
 
     r = await client.get("/api/v1/config")
     assert r.status_code == 200
-    assert r.json()["ritual"]["tolerance_minutes"] == 15
-    assert r.json()["schedule"]["bedtime"] == "22:45"
+    assert body(r)["ritual"]["tolerance_minutes"] == 15
+    assert body(r)["schedule"]["bedtime"] == "22:45"
 
 
 async def test_public_config_falls_back_when_row_missing(client):
     """后台从没配过时，小程序仍要能启动。"""
     r = await client.get("/api/v1/config")
     assert r.status_code == 200
-    assert r.json()["ritual"]["tolerance_minutes"] == 30
-    assert r.json()["schedule"]["bedtime"] == "23:30"
+    assert body(r)["ritual"]["tolerance_minutes"] == 30
+    assert body(r)["schedule"]["bedtime"] == "23:30"
 
 
 async def test_public_config_falls_back_when_row_is_corrupt(client, session):
@@ -215,7 +217,7 @@ async def test_public_config_falls_back_when_row_is_corrupt(client, session):
     await session.flush()
     r = await client.get("/api/v1/config")
     assert r.status_code == 200
-    assert r.json()["ritual"]["tolerance_minutes"] == 30
+    assert body(r)["ritual"]["tolerance_minutes"] == 30
 
 
 async def test_public_config_still_needs_no_auth(client):
@@ -241,3 +243,56 @@ async def test_save_succeeds_when_redis_is_down(client, session):
     with patch("app.services.admin_config.get_redis", return_value=fake):
         r = await client.put("/api/v1/admin/config", json=_full_payload(), headers=h)
     assert r.status_code == 200
+
+
+# ---------- 运营配置真的作用到按时判定上 ----------
+
+async def test_saved_tolerance_actually_affects_eligibility(client, session):
+    """管理员改了容差，POST /nights/complete 的按时判定必须跟着变。
+
+    【这条守的是一个真 bug】api/v1/nights.py 的 _ritual_config() 原先写死
+    DEFAULT_CONFIG，于是阶段二交付的运营配置对「按时完成容差」这个最核心的
+    判定完全无效 —— 管理员把容差从 30 改成 15，后端仍按 30 判，
+    而同一个仓库里 GET /api/v1/config 是老老实实查库的。
+
+    两条路径读同一个来源，这条测试就是那个约束。
+    """
+    import uuid as _uuid
+    from datetime import time
+
+    from app.models import UserSettings
+
+    async def _user(code: str) -> dict:
+        """登录一个用户，把睡点设成 23:30、时区设成 +08，返回请求头。"""
+        login = await client.post("/api/v1/auth/wx-login", json={"code": code})
+        headers = {"Authorization": f"Bearer {body(login)['access_token']}"}
+        me = body(await client.get("/api/v1/me", headers=headers))
+        s = await session.get(UserSettings, _uuid.UUID(me["id"]))
+        s.bedtime, s.timezone = time(23, 30), "Asia/Shanghai"
+        await session.flush()
+        return headers
+
+    # 23:30 睡，23:50 完成 —— 迟到 20 分钟
+    headers = await _user("tol-user")
+    payload = {"completed_at": "2026-08-27T23:50:00+08:00",
+               "gratitudes": ["a"], "plans": ["b"]}
+
+    # 容差 30（默认）→ 迟到 20 分钟仍算按时
+    first = body(await client.post("/api/v1/nights/complete", json=payload, headers=headers))
+    assert first["late_minutes"] == 20
+    assert first["is_eligible"] is True, "默认容差 30 下迟到 20 分钟应当算按时"
+
+    # 管理员把容差收紧到 15
+    h = await _admin_headers(session, "tol-admin")
+    data = _full_payload()
+    data["ritual"]["tolerance_minutes"] = 15
+    assert body(await client.put("/api/v1/admin/config", json=data, headers=h))
+    await session.flush()
+
+    # 换一个用户（同一用户同一夜只有一条夜记，改不动已固化的判定）
+    headers2 = await _user("tol-user-2")
+    second = body(await client.post("/api/v1/nights/complete", json=payload, headers=headers2))
+    assert second["late_minutes"] == 20
+    assert second["is_eligible"] is False, (
+        "容差已改成 15，迟到 20 分钟不该再算按时 —— "
+        "若这里仍是 True，说明按时判定又在读常量而不是查库")

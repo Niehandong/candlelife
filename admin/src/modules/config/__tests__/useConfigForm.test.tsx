@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { CODE_NETWORK } from '../../../api/codes'
 
 import { ApiError } from '../../../api/client'
 import * as endpoints from '../../../api/endpoints'
@@ -81,7 +82,7 @@ describe('useConfigForm', () => {
 
   it('save 失败时保留用户的编辑，不把表单清空', async () => {
     vi.spyOn(endpoints, 'saveConfig')
-      .mockRejectedValue(new ApiError(500, 'INTERNAL_ERROR', '服务器内部错误'))
+      .mockRejectedValue(new ApiError(50000, '服务器内部错误'))
     const { result } = renderHook(() => useConfigForm())
     await waitFor(() => expect(result.current.loading).toBe(false))
     act(() => result.current.setField('app', 'slogan', '别弄丢我'))
@@ -102,7 +103,7 @@ describe('useConfigForm', () => {
 
   it('加载失败时给出可读错误，不留空白页', async () => {
     vi.spyOn(endpoints, 'fetchConfig')
-      .mockRejectedValue(new ApiError(0, 'NETWORK_ERROR', '网络连接失败，请检查后端是否在运行'))
+      .mockRejectedValue(new ApiError(CODE_NETWORK, '网络连接失败，请检查后端是否在运行'))
     const { result } = renderHook(() => useConfigForm())
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.error).toContain('网络连接失败')

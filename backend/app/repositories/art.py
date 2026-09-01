@@ -18,6 +18,23 @@ async def get_visible(session: AsyncSession, art_id: str) -> ArtWork | None:
     return None if art is None or art.is_withdrawn else art
 
 
+async def get_visible_many(session: AsyncSession,
+                           art_ids: list[str]) -> dict[str, ArtWork]:
+    """一次取回多幅可见作品，返回 {art_id: ArtWork}。
+
+    收藏页原先在路由里循环调 get_visible()，收藏 20 幅就查 20 次
+    —— 与后台作品列表已经修过的那个 N+1 是同一个错。
+
+    撤回的作品不在结果里（与 get_visible 一致），调用方按「取不到就跳过」处理。
+    """
+    if not art_ids:
+        return {}
+    rows = await session.scalars(
+        select(ArtWork).where(ArtWork.id.in_(art_ids),
+                              ArtWork.is_withdrawn.is_(False)))
+    return {a.id: a for a in rows}
+
+
 def _admin_filters(stmt, status: str | None, q: str | None):
     """后台列表的筛选条件。列表与计数必须用同一份，否则 total 与 items 不一致。"""
     if status == "active":

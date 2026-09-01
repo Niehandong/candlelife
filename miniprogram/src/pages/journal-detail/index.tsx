@@ -7,6 +7,7 @@ import type { NightDetail } from '@/api/types'
 import Screen from '@/components/Screen'
 import { isEditable } from './editable'
 import './index.scss'
+import { CODE_RECORD_LOCKED } from '@/api/codes'
 
 export default function JournalDetail() {
   const { params } = useRouter()
@@ -45,7 +46,7 @@ export default function JournalDetail() {
       const err = e as ApiError
       // 服务端才是权威：端上以为还能改，服务端可能已固化
       Taro.showToast({
-        title: err.code === 'RECORD_LOCKED' ? '这一晚已经定下了' : err.message,
+        title: err.code === CODE_RECORD_LOCKED ? '这一晚已经定下了' : err.message,
         icon: 'none',
       })
       setEditing(false)

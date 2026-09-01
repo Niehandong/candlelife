@@ -14,6 +14,22 @@ from app.repositories import reward as reward_repo
 _rng = secrets.SystemRandom()
 
 
+async def pending_dates(session: AsyncSession, user_id: uuid.UUID,
+                        now: datetime) -> list["date"]:
+    """已到揭晓窗口、还没揭晓的仪式夜。
+
+    从 api/v1/rewards.py 搬过来的 —— 路由里原本直接跑 domain.can_reveal 并
+    组装列表，那是判定逻辑不是出入参转换。
+    """
+    settings: UserSettings = await session.get(UserSettings, user_id)
+    return [n.ritual_date
+            for n in await reward_repo.pending_nights(session, user_id)
+            if domain.can_reveal(ritual_date=n.ritual_date,
+                                 is_eligible=n.is_eligible,
+                                 reward_revealed_at=n.reward_revealed_at,
+                                 now=now, tz=settings.timezone)]
+
+
 class RewardService:
     async def reveal_all(self, session: AsyncSession, user_id: uuid.UUID,
                          now: datetime) -> list[tuple[Reward, "date"]]:

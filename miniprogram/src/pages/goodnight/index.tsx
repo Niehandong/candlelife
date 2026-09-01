@@ -1,19 +1,19 @@
 import { Text, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import Screen from '@/components/Screen'
-import { DEFAULT_CONFIG, loadConfig } from '@/store/runtime-config'
+import { assetBase } from '@/store/runtime-config'
 import './index.scss'
 
 export default function Goodnight() {
   const { params } = useRouter()
-  const cfg = loadConfig() ?? DEFAULT_CONFIG
+  const base = assetBase()
   const eligible = params.eligible === '1'
   const streak = Number(params.streak ?? 0)
 
   return (
     <Screen
       variant="night"
-      background={`${cfg.assets.base_url}/ui/goodnight-room.jpg`}
+      background={base ? `${base}/ui/goodnight-room.jpg` : undefined}
       className="goodnight"
     >
       <Text className="goodnight__title">今天已经好好结束了。晚安。</Text>

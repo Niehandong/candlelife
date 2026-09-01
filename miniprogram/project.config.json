@@ -2,7 +2,7 @@
   "miniprogramRoot": "dist/",
   "projectname": "zhusheng",
   "description": "烛生 · 陪你按时睡觉",
-  "appid": "touristappid",
+  "appid": "wx66db858c0e0a21c2",
   "setting": {
     "urlCheck": false,
     "es6": false,

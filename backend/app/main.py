@@ -4,7 +4,9 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import get_settings
+from app.core.envelope import ResponseEnvelopeMiddleware
 from app.core.errors import register_exception_handlers
+from app.core.openapi import install as install_openapi
 
 
 def create_app() -> FastAPI:
@@ -12,6 +14,10 @@ def create_app() -> FastAPI:
     app = FastAPI(title="烛生 API", version="0.1.0")
 
     register_exception_handlers(app)
+
+    # 统一响应信封 {code, msg, data}。放在异常处理器之后注册 ——
+    # 失败响应由处理器自己包，中间件看到 4xx/5xx 会跳过，不会包两层。
+    app.add_middleware(ResponseEnvelopeMiddleware)
 
     # 默认假定 admin 与 API 同源（Nginx 把 /api 反代到后端），不开 CORS。
     # 分域名部署时设 ADMIN_CORS_ORIGINS，不需改代码。
@@ -36,6 +42,10 @@ def create_app() -> FastAPI:
     @app.get("/health")
     async def health():
         return {"status": "ok", "env": settings.env}
+
+    # 让 openapi.json 如实描述信封。必须在路由挂完之后 ——
+    # 它是照着 app.routes 生成的。
+    install_openapi(app)
 
     return app
 

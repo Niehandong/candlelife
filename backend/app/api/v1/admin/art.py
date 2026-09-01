@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.admin.auth import current_admin
@@ -37,7 +37,7 @@ async def list_art(status_filter: str | None = Query(None, alias="status"),
         pages=-(-total // page_size) if total else 0)
 
 
-@router.post("/art", response_model=AdminArtItem, status_code=status.HTTP_201_CREATED)
+@router.post("/art", response_model=AdminArtItem)
 async def create_art(payload: AdminArtCreate, _=Depends(current_admin),
                      session: AsyncSession = Depends(get_session)):
     art = await admin_art.create(session, payload)
@@ -54,9 +54,9 @@ async def update_art(art_id: str, payload: AdminArtUpdate, _=Depends(current_adm
     return admin_art.to_item(art, count)
 
 
-@router.delete("/art/{art_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/art/{art_id}")
 async def delete_art(art_id: str, _=Depends(current_admin),
                      session: AsyncSession = Depends(get_session)):
     await admin_art.delete(session, art_id)
     await session.commit()
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return None

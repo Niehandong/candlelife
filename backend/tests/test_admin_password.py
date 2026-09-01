@@ -2,8 +2,7 @@
 import uuid
 
 import pytest
-from fastapi import HTTPException
-
+from app.core.errors import ApiError
 from app.core.password import MAX_PASSWORD_BYTES, hash_password, verify_password
 from app.core.security import create_access_token, create_admin_token, decode_token
 
@@ -53,17 +52,19 @@ def test_admin_token_has_admin_kind():
 def test_user_token_cannot_pass_as_admin():
     """两套 token 完全隔离：用户 token 打管理接口必须打不通。"""
     token = create_access_token(uuid.uuid4())
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(ApiError) as exc:
         decode_token(token, expect_kind="admin")
+    assert exc.value.code == "TOKEN_KIND_MISMATCH"
+    # ApiError 自身仍带着由码推导出的真实状态（40103 // 100），
+    # 「一律 200」是出口处的呈现决定，不是把这个信息抹掉。
     assert exc.value.status_code == 401
-    assert exc.value.detail == "TOKEN_KIND_MISMATCH"
 
 
 def test_admin_token_cannot_pass_as_user():
     token = create_admin_token(uuid.uuid4())
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(ApiError) as exc:
         decode_token(token, expect_kind="access")
-    assert exc.value.detail == "TOKEN_KIND_MISMATCH"
+    assert exc.value.code == "TOKEN_KIND_MISMATCH"
 
 
 def test_admin_token_carries_no_username():

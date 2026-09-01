@@ -6,7 +6,7 @@
 
 from app.core.config import get_settings
 from app.models import ArtWork
-from app.schemas.reward import ArtBrief
+from app.schemas.art import ArtBrief
 
 
 def asset_url(relative_path: str) -> str:
