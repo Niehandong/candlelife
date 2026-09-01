@@ -3,8 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev:weapp": "taro build --type weapp --watch",
-    "build:weapp": "taro build --type weapp",
+    "dev:weapp": "cross-env APP_ENV=lan taro build --type weapp --watch",
+    "build:weapp": "cross-env APP_ENV=lan taro build --type weapp",
+    "dev:weapp:local": "cross-env APP_ENV=local taro build --type weapp --watch",
+    "build:weapp:local": "cross-env APP_ENV=local taro build --type weapp",
+    "build:weapp:prod": "cross-env APP_ENV=prod taro build --type weapp",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
@@ -27,6 +30,7 @@
     "@tarojs/webpack5-runner": "4.2.1",
     "@types/react": "^18.3.12",
     "babel-preset-taro": "4.2.1",
+    "cross-env": "^10.1.0",
     "sass": "^1.83.0",
     "typescript": "5.9.3",
     "vitest": "^3.2.7",

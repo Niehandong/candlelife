@@ -42,6 +42,36 @@ pid 与日志在各自目录的 `.run/`（已 gitignore）。只管进程，不�
 
 **小程序端没有脚本** —— 它跑在微信开发者工具里，不是本机常驻服务。
 
+### 开发者工具装在另一台机器上时（当前就是：后端 Linux，工具 Windows）
+
+小程序里的接口地址是**编译期常量**，不是运行时读的。所以：
+
+| 配置 | 值 | 填错的表现 |
+|---|---|---|
+| `miniprogram/config/index.ts` 的 `TARGETS.lan` | `http://<服务器局域网IP>:8010` | 用 `local` 目标 → 指向 Windows 自己 → `ERR_CONNECTION_REFUSED` |
+| `backend/.env` 的 `ASSET_BASE_URL` | `http://<同一个IP>:8010/static` | 填 `localhost` → **接口通但作品图全裂** |
+
+**改完配置必须重新 `npm run build:weapp`** —— 只在开发者工具里点刷新没用，
+那个地址已经编译进包里了。
+
+> **`config/` 下只有 `index.ts` 一个文件。**
+>
+> 原先还有 `dev.ts` 与 `prod.ts`，但**从来没人读过它们** —— Taro 的多环境配置
+> 要求 `index.ts` 用 `defineConfig(async (merge, { mode }) => ...)` 自己去 merge，
+> 而本项目的 `index.ts` 是普通对象导出。实测：在两个文件里各埋一个独一无二的
+> 标记重新构建，**两个标记都不出现在产物里**。既然是死文件就删了，
+> 免得下一个人照着改半天不生效。
+>
+> 临时覆盖地址（发布包必须这么做）：
+>
+> ```bash
+> API_BASE_URL=https://你的域名 npm run build:weapp          # Linux/mac
+> set API_BASE_URL=https://你的域名 && npm run build:weapp    # Windows cmd
+> ```
+>
+> 地址不是 `https://` 开头时，构建会打一条黄色警告 —— 防止把开发机的局域网
+> 地址打进发布包（那样每个用户都连不上，而且构建不报错，装到手机上才发现）。
+
 ### 从局域网内别的机器访问
 
 要让别的机器打 `http://<本机IP>:8011` 看后台，**三处都要配对**，少一处就白屏或图裂：
@@ -165,10 +195,45 @@ npm test -- contract   # 与后端 OpenAPI 的契约测试（需要后端在跑�
 
 ```bash
 cd miniprogram
-npm test               # vitest run
-npm run build:weapp    # 产出 dist/，导入微信开发者工具
-npm run dev:weapp      # 监听模式
+npm test                    # vitest run
+
+npm run build:weapp         # 局域网（默认，当前常用）→ dist/
+npm run build:weapp:local   # 后端与开发者工具同机
+npm run build:weapp:prod    # 发布包，域名没配好会直接构建失败
+
+npm run dev:weapp           # 监听模式（局域网）
+npm run dev:weapp:local     # 监听模式（本机）
 ```
+
+#### 三个构建目标
+
+地址表在 `config/index.ts` 的 `TARGETS`，**改地址只改那一张表**：
+
+| 目标 | 地址 | 什么时候用 |
+|---|---|---|
+| `local` | `http://127.0.0.1:8010` | 后端与开发者工具在同一台机器 |
+| `lan` | `http://10.111.22.162:8010` | 工具在另一台机器（当前：后端 Linux，工具 Windows） |
+| `prod` | 备案域名 | 发布包 |
+
+脚本用 `cross-env` 传 `APP_ENV`。**Windows 上离不开它** ——
+`APP_ENV=x npm run build` 是 Unix 语法，cmd 里直接报错。
+
+构建时会打一行 `📦 构建目标：局域网调试 → http://…`，一眼看得出打的是哪个包。
+
+**两道发布护栏**（都在 `config/index.ts`，`APP_ENV=prod` 时生效）：
+域名还是占位符 → 构建报错；地址不是 `https://` → 构建报错。
+把开发机的局域网地址打进发布包，后果是每个用户都连不上，
+而且构建不报错、装到手机上才发现 —— 所以在构建时拦死。
+
+临时连别的地址不必改表：`API_BASE_URL=http://x.x.x.x:8010 npm run build:weapp`
+
+#### 运行时也知道自己是哪个包
+
+`APP_ENV` 编译进包（`src/app-env.ts`），**非发布包会在设置页底部显示一条角标**
+（「局域网调试 · 非发布版本」）。发布包 `envLabel()` 返回 `null`，短路不渲染。
+
+接口地址是编译期常量，装到手机上之后界面上看不出连的是测试还是正式 ——
+对着测试数据当正式数据看过一次，就知道这行字值多少钱了。
 
 ### 首次上手
 
@@ -635,7 +700,10 @@ Wikimedia 的文件名，仓库里**没有下载脚本** —— 忽略它们等�
 - `.superpowers/` 是开发时的流程脚手架，已整体 gitignore，不进版本库。
   设计决策的「为什么」在 `docs/superpowers/` 与本文件里。
 - `prototype/` 只读。
-- 上线前必办：**Nginx 的 `log_format` 加 `$upstream_http_x_biz_code`**
+- 上线前必办：**把备案域名填进 `config/index.ts` 的 `TARGETS.prod`，
+  用 `npm run build:weapp:prod` 打包**（用错脚本会打出连不上的包；不过
+  域名没填时该脚本会直接报错，不会静默产出）、
+  **Nginx 的 `log_format` 加 `$upstream_http_x_biz_code`**
   （`/api` 全部返 200 之后，这是统计错误率的唯一途径，不配就等于监控看到「零错误」）、
   轮换数据库与 Redis 密码（曾在对话中明文出现）、删掉开发期的
   `devadmin` 账号、备份 `FERNET_KEYS`、把后台限制在内网 / VPN / IP 白名单内。

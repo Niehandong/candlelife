@@ -18,3 +18,14 @@
     line-height: 1.9; color: var(--paper-muted);
   }
 }
+
+// 非发布包的环境角标。刻意做得不显眼但认得出 ——
+// 它是给开发者看的，不该抢用户的注意力。
+.settings__build-env {
+  display: block;
+  margin-top: 24px;
+  text-align: center;
+  font-size: 22px;
+  color: var(--paper-muted);
+  opacity: .7;
+}

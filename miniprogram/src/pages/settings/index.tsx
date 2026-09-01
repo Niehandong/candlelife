@@ -6,6 +6,7 @@ import type { MeResponse, SettingsPayload } from '@/api/types'
 import Screen from '@/components/Screen'
 import { clearTokens } from '@/store/auth'
 import { clearDraft } from '@/store/draft'
+import { envLabel } from '@/app-env'
 import './index.scss'
 
 export default function Settings() {
@@ -120,6 +121,13 @@ export default function Settings() {
       <Text className="settings__legal">
         感恩与计划的正文加密保存，仅你可见。匿名统计不包含任何正文内容。
       </Text>
+
+      {/* 非发布包留一条可见痕迹 —— 接口地址是编译期常量，装到手机上之后
+          界面上看不出连的是测试还是正式。对着测试数据当正式数据看过一次，
+          就知道这行字值多少钱了。发布包 envLabel() 返回 null，不渲染。 */}
+      {envLabel() && (
+        <Text className="settings__build-env">{envLabel()} · 非发布版本</Text>
+      )}
     </Screen>
   )
 }
