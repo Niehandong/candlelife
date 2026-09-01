@@ -254,6 +254,48 @@ do_status() {
   fi
 }
 
+# ── clean ───────────────────────────────────────────────────────────
+# 只清【可再生】的东西。刻意不删 src/**/__tests__ 与 vite.config.ts 里的
+# test 段 —— 那是源码与配置。
+do_clean() {
+    local freed=0 n
+
+    # Vite / Vitest 缓存
+    if [ -d "$ROOT/node_modules/.vite" ]; then
+      n=$(du -sk "$ROOT/node_modules/.vite" 2>/dev/null | cut -f1)
+      rm -rf "$ROOT/node_modules/.vite"; freed=$((freed + n))
+      ok "已清 node_modules/.vite"
+    fi
+
+    # TypeScript 增量编译信息
+    if [ -f "$ROOT/tsconfig.tsbuildinfo" ]; then
+      n=$(du -sk "$ROOT/tsconfig.tsbuildinfo" 2>/dev/null | cut -f1)
+      rm -f "$ROOT/tsconfig.tsbuildinfo"; freed=$((freed + n))
+      ok "已清 tsconfig.tsbuildinfo"
+    fi
+
+    # 构建产物。dist/ 是要交给 Nginx 的东西，所以只在显式要求时删。
+    if [ "${1:-}" = "all" ] && [ -d "$ROOT/dist" ]; then
+      n=$(du -sk "$ROOT/dist" 2>/dev/null | cut -f1)
+      rm -rf "$ROOT/dist"; freed=$((freed + n))
+      ok "已清 dist（重建：npm run build）"
+    fi
+
+    if [ -f "$LOGFILE" ]; then
+      n=$(du -sk "$LOGFILE" 2>/dev/null | cut -f1)
+      : > "$LOGFILE"; freed=$((freed + n))
+      ok "已清空 $(basename "$LOGFILE")"
+    fi
+
+    if [ "$freed" -eq 0 ]; then
+      info "本来就是干净的"
+    else
+      info "共释放约 $((freed / 1024 + 1)) MB"
+    fi
+    [ "${1:-}" != "all" ] && [ -d "$ROOT/dist" ] && info "dist/ 保留着；连它一起清用 ./dev.sh clean all"
+    return 0
+}
+
 # ── logs ────────────────────────────────────────────────────────────
 do_logs() {
   if [ ! -f "$LOGFILE" ]; then
@@ -278,6 +320,8 @@ usage() {
   restart    重启
   logs       看日志（默认最后 200 行，加 -f 跟随）
   status     看在不在跑（同时报后端 :$BACKEND_PORT 的状态）
+  clean      清缓存与日志（.vite、tsbuildinfo、运行日志）
+  clean all  连 dist/ 一起清
 
 例子
   ./dev.sh start
@@ -293,9 +337,11 @@ cmd="${1:-}"
 shift || true
 
 follow=0
+target_arg=""
 for arg in "$@"; do
   case "$arg" in
     -f|--follow) follow=1 ;;
+    all) target_arg="all" ;;
     -h|--help) usage; exit 0 ;;
     *) err "不认识的参数：$arg"; echo; usage; exit 2 ;;
   esac
@@ -310,6 +356,7 @@ case "$cmd" in
   restart) do_stop; echo; do_start || exit 1 ;;
   logs)    do_logs "$follow" ;;
   status)  do_status ;;
+  clean)   do_clean "$target_arg" ;;
   ''|-h|--help|help) usage ;;
   *) err "不认识的命令：$cmd"; echo; usage; exit 2 ;;
 esac

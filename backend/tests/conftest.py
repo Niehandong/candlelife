@@ -18,6 +18,32 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.core.db import make_engine
 from app.models import Base
 
+def pytest_configure(config):
+    """测试运行时的配置，原先在 backend/pytest.ini 里。
+
+    搬到这里是因为运行环境改成了仓库根的 .venv，backend/ 下不再需要一个
+    独立的 pytest 配置文件。这四项缺一不可：
+
+      asyncio_mode = auto           26 个测试文件里有 22 个不写 @pytest.mark.asyncio，
+                                    strict 模式下它们会被收集但拒绝执行
+      两个 loop_scope = session     数据库引擎是 session 级 fixture，
+                                    测试与它必须在同一个事件循环里，否则
+                                    "attached to a different loop"
+      filterwarnings                app 自己代码里的 DeprecationWarning 视为错误，
+                                    别让弃用悄悄堆积
+
+    pytest-asyncio 在收集阶段才读 asyncio_mode，且 option 优先于 ini，
+    所以这里设 config.option 是有效的；两个 loop_scope 它在自己的
+    pytest_configure 里读 ini，得走 addinivalue/inicfg。
+    """
+    config.option.asyncio_mode = "auto"
+    config.inicfg.setdefault("asyncio_default_fixture_loop_scope", "session")
+    config.inicfg.setdefault("asyncio_default_test_loop_scope", "session")
+    # 用 pytest 自己的 filterwarnings 而不是 warnings.filterwarnings()：
+    # pytest 每个测试都在 catch_warnings 上下文里跑，模块级设的过滤器会被重置。
+    config.addinivalue_line("filterwarnings", "error::DeprecationWarning:app.*")
+
+
 TEST_SCHEMA = os.environ.get("TEST_DB_SCHEMA", "zhusheng_test")
 
 if not TEST_SCHEMA.endswith("_test"):

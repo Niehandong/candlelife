@@ -87,23 +87,31 @@ pid 与日志在各自目录的 `.run/`（已 gitignore）。只管进程，不�
 
 ## 命令
 
-### 后端（`backend/`，依赖在 `backend/.venv`）
+### 后端（`backend/`，依赖装在**仓库根**的 `.venv`）
 
 ```bash
 cd backend
 
-.venv/bin/python -m pytest                                     # 全部测试（约 5 分钟）
-.venv/bin/python -m pytest tests/test_ritual_api.py -v         # 单个文件
-.venv/bin/python -m pytest tests/test_ritual_api.py::test_complete_on_time -v
+../.venv/bin/python -m pytest                                     # 全部测试（约 5 分钟）
+../.venv/bin/python -m pytest tests/test_ritual_api.py -v         # 单个文件
+../.venv/bin/python -m pytest tests/test_ritual_api.py::test_complete_on_time -v
 
-.venv/bin/alembic revision -m "描述"      # 生成空迁移，手写内容（见下）
-.venv/bin/alembic upgrade head
+../.venv/bin/python -m alembic revision -m "描述"      # 生成空迁移，手写内容（见下）
+../.venv/bin/python -m alembic upgrade head
 
-.venv/bin/python -m scripts.seed_art          # 灌 10 幅艺术作品（幂等）
-.venv/bin/python -m scripts.prepare_ui_assets # 从 prototype/ 生成 static/ui/
-.venv/bin/python -m scripts.create_admin <username>          # 建管理员
-.venv/bin/python -m scripts.create_admin <username> --reset  # 改密码
+../.venv/bin/python -m scripts.seed_art          # 灌 10 幅艺术作品（幂等）
+../.venv/bin/python -m scripts.prepare_ui_assets # 从 prototype/ 生成 static/ui/
+../.venv/bin/python -m scripts.create_admin <username>          # 建管理员
+../.venv/bin/python -m scripts.create_admin <username> --reset  # 改密码
 ```
+
+> **虚拟环境在仓库根的 `.venv`，不在 `backend/` 下。** 所以从 `backend/` 里调用
+> 要写 `../.venv/bin/...`。依赖清单是 `backend/requirements.txt`（不再是
+> `pyproject.toml`），pytest 配置在 `backend/pytest.ini`。
+>
+> 一律用 `python -m <模块>` 而不是 `.venv/bin/<命令>`：venv 搬过位置后，
+> `bin/` 下那些可执行文件的 shebang 还指着旧路径，`../.venv/bin/alembic`
+> 会报 `cannot execute: required file not found`。`python -m alembic` 不受影响。
 
 **不要并发跑两个 pytest 会话。** 它们共用 `zhusheng_test` schema，fixture 会
 `drop_all` 重建，两个会话互相拆台，结果不可信（踩过）。
@@ -114,7 +122,7 @@ cd backend
 ### 迁移：一律手写，禁止 `--autogenerate`
 
 ```bash
-.venv/bin/alembic revision -m "描述"    # 注意：没有 --autogenerate
+../.venv/bin/python -m alembic revision -m "描述"    # 注意：没有 --autogenerate
 ```
 
 autogenerate 在本项目曾生成 **19 条 `DROP TABLE`**，目标是**另一个项目**在
@@ -145,9 +153,13 @@ npm run dev:weapp      # 监听模式
 ### 首次上手
 
 ```bash
-cd backend && .venv/bin/alembic upgrade head
-cd backend && .venv/bin/python -m scripts.seed_art
-cd backend && .venv/bin/python -m scripts.create_admin <你的用户名>   # 密码从 stdin 读
+# 依赖装在仓库根的 .venv，清单是 backend/requirements.txt
+python3 -m venv .venv
+.venv/bin/python -m pip install -r backend/requirements.txt
+
+cd backend && ../.venv/bin/python -m alembic upgrade head
+cd backend && ../.venv/bin/python -m scripts.seed_art
+cd backend && ../.venv/bin/python -m scripts.create_admin <你的用户名>   # 密码从 stdin 读
 
 cd backend && ./dev.sh start     # 后端 :8010
 cd admin   && ./dev.sh start     # 后台前端 :8011
@@ -155,6 +167,69 @@ cd admin   && ./dev.sh start     # 后台前端 :8011
 
 后台没有注册接口，也没有改密接口 —— 一个能改全局配置的后台，自助注册就是把门拆了。
 建号与改密都走 `scripts/create_admin.py`，需要服务器 shell 权限。
+
+## 清理与部署
+
+### 每次开发完毕：清掉可再生的东西
+
+```bash
+cd backend && ./dev.sh clean     # .pytest_cache、__pycache__、*.egg-info、运行日志
+cd admin   && ./dev.sh clean     # node_modules/.vite、tsbuildinfo、运行日志
+cd admin   && ./dev.sh clean all # 连 dist/ 一起清
+```
+
+判断标准只有一条：**一条命令就能重建的，才算产物。**
+
+| 清 | 为什么 | 重建方式 |
+|---|---|---|
+| `backend/.pytest_cache/` | pytest 的上次运行记录 | 跑一次测试 |
+| `backend/**/__pycache__/`（不含 `.venv`） | 字节码缓存 | 下次导入 |
+| `backend/*.egg-info/` | 旧构建元数据 | 重装依赖 |
+| `admin/node_modules/.vite/` | Vite 依赖预构建缓存 | `npm run dev` |
+| `admin/tsconfig.tsbuildinfo` | TS 增量编译信息 | `npm run typecheck` |
+| `.run/*.log` | 服务日志 | 下次启动 |
+
+**`.venv` 里的 `__pycache__` 不要动。** 那是依赖自己的缓存（226 个目录、41M），
+删了只让下次导入变慢，不是残留。
+
+### 这三样【不是】产物，不要删
+
+| | 是什么 | 删了会怎样 |
+|---|---|---|
+| `backend/tests/` | 30 个文件、2895 行、**319 个用例** | 安全网没了 |
+| `shared/ritual-cases.json` | 双实现契约的 55 条用例 | 两端测试同时红 |
+
+> **没有 `backend/pytest.ini`。** 运行环境改成仓库根的 `.venv` 之后，那个独立的
+> 配置文件被删掉了，四项配置搬进了 `tests/conftest.py` 的 `pytest_configure()`。
+> 那四项不是可选的 —— 实测删掉配置后跑全量是 **64 failed / 27 errors**
+> （异步测试拿不到事件循环）。改 conftest 时别把那个函数删了。
+
+`tests/` 里有几条是**专门守已经发生过的事故**的，删掉等于把教训一起删掉：
+
+- `test_schema_isolation.py` —— 守另一个项目的 `public.users`（那张表被误删过一次）
+- `test_admin_privacy.py` —— AST 扫描，守后台不读用户数据、不解密正文
+- `test_domain_timezone.py` —— 守 UTC 容器与 +08 浏览器得出相反结论的那个 bug
+- `test_domain_contract.py` —— 守 Python 与 TypeScript 两份规则实现不许分家
+- `tests/conftest.py` —— 三道护栏，阻止 `drop_all` 顺着 `search_path` 回落到 `public`
+
+### 部署时不带上测试，用排除而不是删除
+
+线上机器确实不需要 `tests/`、`pytest.ini`。做法是**打包时排除**，仓库里留着：
+
+```bash
+# 用 rsync 部署时
+rsync -a --exclude='tests/' --exclude='pytest.ini' --exclude='__pycache__/' \
+      --exclude='.pytest_cache/' --exclude='.venv/' --exclude='.env' --exclude='.run/' \
+      backend/ 目标机:/opt/zhusheng/backend/
+
+# 用 Docker 时写进 .dockerignore
+```
+
+前端更简单：`npm run build` 的产物 `dist/` 本来就只有编译后的代码，
+测试文件不会进去 —— 交给 Nginx 的就是 `dist/`，不是整个 `admin/`。
+
+**区别在于：仓库是开发的底稿，部署包是运行时的切片。** 从底稿上剪掉安全网，
+下次改代码就没有任何东西拦着你；从切片里去掉它，什么都不影响。
 
 ## 数据库的特殊约束
 

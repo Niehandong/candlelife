@@ -253,6 +253,56 @@ do_status() {
   fi
 }
 
+# ── clean ───────────────────────────────────────────────────────────
+# 只清【可再生】的东西：缓存与日志。
+#
+# 刻意【不删】 tests/ 与 pytest.ini —— 那不是构建产物，是源码与配置。
+# tests/ 里有几条是专门守事故的（public.users 误删、后台越权读用户数据、
+# 两份规则实现分家），删掉等于每次开发完把安全网剪了。
+# 部署时不想带上它们，用打包排除，见 CLAUDE.md「清理与部署」。
+do_clean() {
+    local freed=0 n
+
+    # pytest 缓存
+    if [ -d "$ROOT/.pytest_cache" ]; then
+      n=$(du -sk "$ROOT/.pytest_cache" 2>/dev/null | cut -f1)
+      rm -rf "$ROOT/.pytest_cache"; freed=$((freed + n))
+      ok "已清 .pytest_cache"
+    fi
+
+    # 项目自己的字节码缓存。【不碰 .venv 里的】—— 那是依赖的缓存，
+    # 删了只让下次导入变慢，不是残留。
+    n=$(find "$ROOT" -type d -name __pycache__ -not -path "*/.venv/*" 2>/dev/null | wc -l)
+    if [ "$n" -gt 0 ]; then
+      local kb
+      kb=$(find "$ROOT" -type d -name __pycache__ -not -path "*/.venv/*" \
+             -exec du -sk {} + 2>/dev/null | cut -f1 | paste -sd+ | bc 2>/dev/null || echo 0)
+      find "$ROOT" -type d -name __pycache__ -not -path "*/.venv/*" -exec rm -rf {} + 2>/dev/null
+      freed=$((freed + kb))
+      ok "已清 $n 个 __pycache__"
+    fi
+
+    # 旧的构建元数据
+    for d in "$ROOT"/*.egg-info; do
+      [ -d "$d" ] || continue
+      n=$(du -sk "$d" 2>/dev/null | cut -f1); rm -rf "$d"; freed=$((freed + n))
+      ok "已清 $(basename "$d")"
+    done
+
+    # 服务日志。pid 文件不动 —— 服务可能正在跑。
+    if [ -f "$LOGFILE" ]; then
+      n=$(du -sk "$LOGFILE" 2>/dev/null | cut -f1)
+      : > "$LOGFILE"; freed=$((freed + n))
+      ok "已清空 $(basename "$LOGFILE")"
+    fi
+
+    if [ "$freed" -eq 0 ]; then
+      info "本来就是干净的"
+    else
+      info "共释放约 $((freed / 1024 + 1)) MB"
+    fi
+}
+
 # ── logs ────────────────────────────────────────────────────────────
 do_logs() {
   if [ ! -f "$LOGFILE" ]; then
@@ -277,6 +327,8 @@ usage() {
   restart    重启
   logs       看日志（默认最后 200 行，加 -f 跟随）
   status     看在不在跑
+  clean      清缓存与日志（.pytest_cache、__pycache__、*.egg-info、运行日志）
+             不动 tests/ 与 pytest.ini —— 那是源码与配置，不是产物
 
 例子
   ./dev.sh start
@@ -309,6 +361,7 @@ case "$cmd" in
   restart) do_stop; echo; do_start || exit 1 ;;
   logs)    do_logs "$follow" ;;
   status)  do_status ;;
+  clean)   do_clean ;;
   ''|-h|--help|help) usage ;;
   *) err "不认识的命令：$cmd"; echo; usage; exit 2 ;;
 esac
