@@ -6,7 +6,8 @@
 #   ./dev.sh stop
 #   ./dev.sh restart
 #   ./dev.sh logs         最后 200 行
-#   ./dev.sh logs -f      跟随输出
+#   ./dev.sh logs -f
+  ./dev.sh logs --raw        # 起不来时看这个      跟随输出
 #   ./dev.sh status
 #
 # 只管进程，不管环境：不检测、不安装依赖。缺根目录 .venv 时报一行原因就停。
@@ -25,7 +26,8 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUN="$ROOT/.run"
 PIDFILE="$RUN/backend.pid"
-LOGFILE="$RUN/backend.log"
+LOGFILE="$RUN/backend.log"          # 进程原始 stdout/stderr（含日志系统起来之前的崩溃）
+APPLOG="$ROOT/logs/zhusheng.log"    # 应用日志，按天切、留 30 天（app/core/logging.py）
 
 PORT="${PORT:-8010}"
 # 绑 0.0.0.0：局域网内别的机器要能访问 —— 后台的作品缩略图由本服务直接提供
@@ -304,16 +306,29 @@ do_clean() {
 }
 
 # ── logs ────────────────────────────────────────────────────────────
+# 默认看【应用日志】——访问记录、警告、异常都在那儿，带业务码。
+# 加 --raw 看进程的原始 stdout/stderr：日志系统起来之前的崩溃（配置非法、
+# 端口被占、import 失败）只会出现在那里，应用日志里一个字都没有。
 do_logs() {
-  if [ ! -f "$LOGFILE" ]; then
-    err "还没有日志（$LOGFILE）"
+  local follow="${1:-0}" raw="${2:-0}" target label
+
+  if [ "$raw" = "1" ]; then
+    target="$LOGFILE"; label="进程原始输出"
+  else
+    target="$APPLOG";  label="应用日志"
+  fi
+
+  if [ ! -f "$target" ]; then
+    err "还没有$label（$target）"
+    [ "$raw" = "0" ] && info "看进程原始输出：./dev.sh logs --raw"
     return 1
   fi
-  if [ "${1:-0}" = "1" ]; then
-    printf '%s跟随 %s，Ctrl-C 退出%s\n' "$C_DIM" "$LOGFILE" "$C_0"
-    tail -n 50 -f "$LOGFILE"
+
+  if [ "$follow" = "1" ]; then
+    printf '%s跟随 %s（%s），Ctrl-C 退出%s\n' "$C_DIM" "$target" "$label" "$C_0"
+    tail -n 50 -f "$target"
   else
-    tail -n 200 "$LOGFILE"
+    tail -n 200 "$target"
   fi
 }
 
@@ -325,7 +340,7 @@ usage() {
   start      启动后端  :$PORT
   stop       停止
   restart    重启
-  logs       看日志（默认最后 200 行，加 -f 跟随）
+  logs       看应用日志（最后 200 行；-f 跟随；--raw 看进程原始输出）
   status     看在不在跑
   clean      清缓存与日志（.pytest_cache、__pycache__、*.egg-info、运行日志）
              不动 tests/ 与 pytest.ini —— 那是源码与配置，不是产物
@@ -333,6 +348,7 @@ usage() {
 例子
   ./dev.sh start
   ./dev.sh logs -f
+  ./dev.sh logs --raw        # 起不来时看这个
   PORT=9000 ./dev.sh start
 
 pid 与日志在 .run/（已 gitignore）。只管本目录的后端；
@@ -344,9 +360,11 @@ cmd="${1:-}"
 shift || true
 
 follow=0
+raw=0
 for arg in "$@"; do
   case "$arg" in
     -f|--follow) follow=1 ;;
+    --raw) raw=1 ;;
     -h|--help) usage; exit 0 ;;
     *) err "不认识的参数：$arg"; echo; usage; exit 2 ;;
   esac
@@ -359,7 +377,7 @@ case "$cmd" in
     ;;
   stop)    do_stop ;;
   restart) do_stop; echo; do_start || exit 1 ;;
-  logs)    do_logs "$follow" ;;
+  logs)    do_logs "$follow" "$raw" ;;
   status)  do_status ;;
   clean)   do_clean ;;
   ''|-h|--help|help) usage ;;

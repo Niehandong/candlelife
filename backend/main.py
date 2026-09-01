@@ -26,6 +26,10 @@ def main() -> None:
         host=host,
         port=port,
         reload=reload_enabled,
+        # 关掉 uvicorn 自带的 access log：/api 下 HTTP 状态一律 200，
+        # 那行对成功和失败打印的东西一模一样，没有信息量。
+        # 改用 app/core/logging.py 的 AccessLogMiddleware，它带业务码。
+        access_log=False,
     )
 
 

@@ -174,7 +174,10 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(Exception)
     async def _unhandled(request: Request, exc: Exception):
-        request_id = uuid.uuid4().hex
+        # 复用访问日志那条的 id —— 用户报错时给的是响应头里的 X-Request-Id，
+        # 两处对不上就查不到人。取不到（中间件没跑到）才新生成一个。
+        from app.core.logging import request_id_var
+        request_id = request_id_var.get() or uuid.uuid4().hex[:8]
         # 记全栈到日志，但响应体绝不含堆栈、SQL 或连接串
         logger.exception("unhandled error request_id=%s path=%s", request_id, request.url.path)
         return _fail(request, "INTERNAL_ERROR", {"request_id": request_id})

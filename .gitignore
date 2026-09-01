@@ -128,3 +128,5 @@ desktop.ini
 *.tmp
 .scratch/
 
+# 应用日志（按天切分，保留 30 天）。日志是运行产物，不进版本库。
+backend/logs/
